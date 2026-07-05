@@ -3,7 +3,7 @@ import sys
 import os
 
 def generate_board():
-    print("Initializing KiCad board generation with net connections...")
+    print("Initializing KiCad board generation with extra hardware and net connections...")
     board = pcbnew.BOARD()
 
     # Define board dimensions: 120mm x 100mm (values in micrometers -> nanometers)
@@ -83,27 +83,62 @@ def generate_board():
     place_component("SW1", "Game_Selector", "Button_Switch_THT", "SW_DIP_SPSTx08_Slide_9.78x22.5mm_W7.62mm_P2.54mm", 100.0, 93.0)
     place_component("SW2", "Cabinet_Options", "Button_Switch_THT", "SW_DIP_SPSTx08_Slide_9.78x22.5mm_W7.62mm_P2.54mm", 115.0, 93.0)
 
+    # 5. Added Safety and Logic Hardware
+    # U1: Buck Regulator (TO-220 Pin 1: Vin (+12V), Pin 2: GND, Pin 3: Vout (+5V))
+    place_component("U1", "Buck_Regulator", "Package_TO_SOT_THT", "TO-220-3_Vertical", 115.0, 30.0)
+    # U2 & U3: Optocouplers for Isolation
+    place_component("U2", "Optocoupler_P1", "Package_DIP", "DIP-16_W7.62mm", 15.0, 45.0)
+    place_component("U3", "Optocoupler_Sys", "Package_DIP", "DIP-16_W7.62mm", 15.0, 65.0)
+    # U4: 74HCT244 Sync Buffer
+    place_component("U4", "Sync_Buffer", "Package_DIP", "DIP-20_W7.62mm", 85.0, 30.0)
+    # U5: LM386 Audio Power Amp
+    place_component("U5", "Audio_Amplifier", "Package_DIP", "DIP-8_W7.62mm", 115.0, 65.0)
+
     # --- Draw Electrical Wires (Ratsnest Connectivity) ---
     print("Defining and routing electrical nets...")
     
     # Net connections mapping: (NetName, Component1Ref, Pad1Number, Component2Ref, Pad2Number)
     connections = [
-        ("BTN_LEFT",    "JP1", "1",  "J2", "1"),
-        ("BTN_RIGHT",   "JP1", "2",  "J2", "2"),
-        ("BTN_FIRE",    "JP1", "3",  "J2", "5"),
-        ("BTN_SHIELD",  "JP1", "4",  "J2", "6"),
-        ("BTN_START",   "JP1", "5",  "J3", "3"),
-        ("BTN_COIN",    "JP1", "6",  "J3", "1"),
-        ("BTN_SERVICE", "JP1", "7",  "J3", "2"),
-        ("BTN_TILT",    "JP1", "8",  "J3", "5"),
+        # Optocoupler Isolated Inputs mapping:
+        # Cabinet input -> Opto LED Pin -> LED GND (when button is pressed)
+        ("CAB_BTN_LEFT",    "J2", "1",   "U2", "1"),  # Left MCR pin to Opto LED Input 1
+        ("GND",             "U2", "2",   "P_IN", "2"), # LED common ground
+        ("BTN_LEFT",        "U2", "16",  "JP1", "1"),  # Opto Transistor output to FPGA
+        ("GND",             "U2", "15",  "P_IN", "2"), # Transistor emitter ground
         
+        ("CAB_BTN_RIGHT",   "J2", "2",   "U2", "3"),  # Right MCR pin to Opto LED Input 2
+        ("GND",             "U2", "4",   "P_IN", "2"),
+        ("BTN_RIGHT",       "U2", "14",  "JP1", "2"),
+        ("GND",             "U2", "13",  "P_IN", "2"),
+
+        ("CAB_BTN_FIRE",    "J2", "5",   "U2", "5"),  # Fire MCR pin to Opto LED Input 3
+        ("GND",             "U2", "6",   "P_IN", "2"),
+        ("BTN_FIRE",        "U2", "12",  "JP1", "3"),
+        ("GND",             "U2", "11",  "P_IN", "2"),
+
+        ("CAB_BTN_SHIELD",  "J2", "6",   "U2", "7"),  # Shield MCR pin to Opto LED Input 4
+        ("GND",             "U2", "8",   "P_IN", "2"),
+        ("BTN_SHIELD",      "U2", "10",  "JP1", "4"),
+        ("GND",             "U2", "9",   "P_IN", "2"),
+
+        # Video sync buffer connections (74HCT244)
+        # FPGA Sync Out -> Buffer Input -> Buffer Output -> Video Connector
+        ("FPGA_HSYNC",      "JP1", "18", "U4", "2"),   # FPGA HSync to Buffer Input 1
+        ("CAB_HSYNC",       "U4", "18",  "J_VID", "8"), # Buffer Output 1 to Video header
+        ("FPGA_VSYNC",      "JP1", "19", "U4", "4"),   # FPGA VSync to Buffer Input 2
+        ("CAB_VSYNC",       "U4", "16",  "J_VID", "9"), # Buffer Output 2 to Video header
+
+        # Power lines
+        ("12V_POWER",       "P_IN", "1",  "U1", "1"),   # +12V from terminal block to Buck Regulator Vin (Pin 1)
+        ("5V_REGULATED",    "U1", "3",   "JP1", "40"), # Buck Regulator Vout (Pin 3) to Tang 5V Input
+        ("GND",             "U1", "2",   "P_IN", "2"), # Buck Regulator GND (Pin 2) to common GND
+
+        # DAC Color connections directly to Video Connector
         ("CAB_R0",      "JP1", "9",  "J_VID", "1"),
         ("CAB_G0",      "JP1", "12", "J_VID", "3"),
         ("CAB_B0",      "JP1", "15", "J_VID", "5"),
-        ("CAB_HS",      "JP1", "18", "J_VID", "8"),
-        ("CAB_VS",      "JP1", "19", "J_VID", "9"),
-        
-        # SW1 Game Selector DIPs (SW1 pads 1-8 are switches, 9-16 are ground)
+
+        # SW1 Game Selector DIPs
         ("GAME_SEL0",   "JP1", "23", "SW1", "1"),
         ("GAME_SEL1",   "JP1", "24", "SW1", "2"),
         ("GAME_SEL2",   "JP1", "25", "SW1", "3"),
@@ -129,9 +164,8 @@ def generate_board():
         ("GND",         "J_VID", "2", "P_IN", "2"),
         ("GND",         "J_VID", "4", "P_IN", "2"),
         ("GND",         "J_VID", "6", "P_IN", "2"),
-        
-        # 12V Power In
-        ("12V_POWER",   "P_IN", "1",  "JP1", "40"), # Map power to the header pin
+        ("GND",         "U4", "10",  "P_IN", "2"), # Buffer GND pin 10
+        ("GND",         "U5", "4",   "P_IN", "2"), # LM386 GND pin 4
     ]
 
     for net_name, ref1, pad1, ref2, pad2 in connections:
