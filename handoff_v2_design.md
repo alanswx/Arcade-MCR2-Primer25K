@@ -145,3 +145,44 @@ These pins handle the 8-bit parallel dial/spinner outputs (like Tron's spinner w
 | **Video-6** | Video GND | Video Ground |
 | **Video-8** | H-Sync (-) | Sync Buffer (from F1 / A1) |
 | **Video-9** | V-Sync (-) | Sync Buffer (from F2) |
+
+---
+
+## 4. Pinout Mapping for Tang Console 60K & 138K (2x20 Header Shield)
+
+Because the **Tang Console 60K & 138K** cores fit entirely inside the FPGA's internal BRAM, you have **92 free GPIO pins** on the board's two 2x20-pin expansion headers. This allows for a completely parallel shield design with zero multiplexing or serial converters.
+
+Below is the pin mapping between the original Bally Midway MCR harness and the 2x20 GPIO Header pins as defined in `mcr2_console60k.cst` and `mcr2_console138k.cst`:
+
+### Cabinet Controls (J2 & J3)
+| MCR Pin | Signal | 2x20 Header Pin Name | FPGA Pin |
+| :--- | :--- | :--- | :--- |
+| **J2-1** | P1 Up / Left | `btn_left` | A10 |
+| **J2-2** | P1 Down / Right | `btn_right` | A11 |
+| **J2-3** | P1 Left / Utility | `btn_fire` | B10 |
+| **J2-4** | P1 Right / Utility | `btn_shield` | B11 |
+| **J2-5** | P1 Button 1 (Fire) | `btn_start` | C10 |
+| **J2-6** | P1 Button 2 (Shield) | `btn_coin` | C11 |
+| **J3-1** | Coin 1 | `btn_service` | D10 |
+| **J3-3** | Start 1 | `btn_tilt` | D11 |
+
+### Cabinet Video (RGBS) & Audio Outputs
+| MCR Pin | Signal | 2x20 Header Pin Name | FPGA Pin |
+| :--- | :--- | :--- | :--- |
+| **Video-1** | Analog Red | `cab_r[0]` (LSB) | F10 |
+| | | `cab_r[1]` | F11 |
+| | | `cab_r[2]` (MSB) | G10 |
+| **Video-3** | Analog Green | `cab_g[0]` (LSB) | H10 |
+| | | `cab_g[1]` | H11 |
+| | | `cab_g[2]` (MSB) | J10 |
+| **Video-5** | Analog Blue | `cab_b[0]` (LSB) | K10 |
+| | | `cab_b[1]` | K11 |
+| | | `cab_b[2]` (MSB) | L10 |
+| **Video-8** | H-Sync (-) | `cab_hs` | M10 |
+| **Video-9** | V-Sync (-) | `cab_vs` | M11 |
+| | CSync (-) | `cab_csync` | N10 |
+| | Audio Left PWM | `audio_l` | P10 |
+| | Audio Right PWM | `audio_r` | P11 |
+
+*Note: You can easily update these constraints in your target project's `.cst` file to match whatever layout you choose for your custom KiCad or Altium PCB Shield.*
+
