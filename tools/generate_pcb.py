@@ -3,16 +3,17 @@ import sys
 import os
 
 def generate_board():
-    print("Initializing KiCad board generation (Compact 95mm x 85mm)...")
+    print("Initializing KiCad board generation (110mm x 90mm)...")
     board = pcbnew.BOARD()
 
-    # Define board dimensions: 95mm x 85mm
-    width = 95.0
-    height = 85.0
+    # Define board dimensions: 110mm x 90mm
+    width = 110.0
+    height = 90.0
     margin = 5.0
 
-    # Draw PCB Edge Outline on the Edge.Cuts layer
+    # Draw PCB Edge Outline on the Edge.Cuts layer and F.Silkscreen layer
     edge_layer = board.GetLayerID("Edge.Cuts")
+    silk_layer = board.GetLayerID("F.Silkscreen")
     
     # Coordinates in nanometers (1mm = 1,000,000 nm)
     x_min, y_min = int(margin * 1000000), int(margin * 1000000)
@@ -25,17 +26,20 @@ def generate_board():
         pcbnew.VECTOR2I(x_min, y_max)
     ]
 
-    for i in range(4):
-        p1 = corners[i]
-        p2 = corners[(i + 1) % 4]
-        seg = pcbnew.PCB_SHAPE(board)
-        seg.SetShape(pcbnew.SHAPE_T_SEGMENT)
-        seg.SetStart(p1)
-        seg.SetEnd(p2)
-        seg.SetLayer(edge_layer)
-        board.Add(seg)
+    # Draw boundary outlines on both layers for maximum visibility in PDF
+    for layer in [edge_layer, silk_layer]:
+        for i in range(4):
+            p1 = corners[i]
+            p2 = corners[(i + 1) % 4]
+            seg = pcbnew.PCB_SHAPE(board)
+            seg.SetShape(pcbnew.SHAPE_T_SEGMENT)
+            seg.SetStart(p1)
+            seg.SetEnd(p2)
+            seg.SetLayer(layer)
+            seg.SetWidth(int(0.5 * 1000000)) # 0.5mm thick line
+            board.Add(seg)
 
-    print("PCB Edge Outline drawn successfully!")
+    print("PCB Edge Outline drawn successfully on Edge.Cuts and F.Silkscreen!")
 
     # Dict to keep track of placed footprints for net connection
     placed_footprints = {}
@@ -64,45 +68,45 @@ def generate_board():
         placed_footprints[reference] = fp
         print(f"Placed {reference} ({value}) at X={x_mm}mm, Y={y_mm}mm")
 
-    # --- Place Components (Compact Layout) ---
+    # --- Place Components (Roomy & Safe Layout) ---
     # 1. Tang Console Host Sockets (2x20 Pin Headers spaced 20mm apart)
-    place_component("JP1", "Tang_2x20_H1", "Connector_PinHeader_2.54mm", "PinHeader_2x20_P2.54mm_Vertical", 50.0, 40.0)
-    place_component("JP2", "Tang_2x20_H2", "Connector_PinHeader_2.54mm", "PinHeader_2x20_P2.54mm_Vertical", 50.0, 60.0)
+    place_component("JP1", "Tang_2x20_H1", "Connector_PinHeader_2.54mm", "PinHeader_2x20_P2.54mm_Vertical", 55.0, 40.0)
+    place_component("JP2", "Tang_2x20_H2", "Connector_PinHeader_2.54mm", "PinHeader_2x20_P2.54mm_Vertical", 55.0, 60.0)
 
     # 2. MCR Top Connectors (Controls, Coin, Video, Power)
     place_component("J2", "MCR_P1_Controls", "Connector_PinHeader_2.54mm", "PinHeader_1x15_P2.54mm_Vertical", 25.0, 12.0)
-    place_component("J3", "MCR_System_Coin", "Connector_PinHeader_2.54mm", "PinHeader_1x05_P2.54mm_Vertical", 52.0, 12.0)
-    place_component("J_VID", "MCR_Video_Out", "Connector_PinHeader_2.54mm", "PinHeader_1x09_P2.54mm_Vertical", 75.0, 12.0)
-    place_component("P_IN", "Power_+12V_GND", "Connector_PinHeader_2.54mm", "PinHeader_1x02_P2.54mm_Vertical", 93.0, 12.0)
+    place_component("J3", "MCR_System_Coin", "Connector_PinHeader_2.54mm", "PinHeader_1x05_P2.54mm_Vertical", 55.0, 12.0)
+    place_component("J_VID", "MCR_Video_Out", "Connector_PinHeader_2.54mm", "PinHeader_1x09_P2.54mm_Vertical", 80.0, 12.0)
+    place_component("P_IN", "Power_+12V_GND", "Connector_PinHeader_2.54mm", "PinHeader_1x02_P2.54mm_Vertical", 105.0, 12.0)
 
     # 3. MCR Bottom Connectors (P2 Controls, Spinners)
-    place_component("J5", "MCR_P2_Controls", "Connector_PinHeader_2.54mm", "PinHeader_1x19_P2.54mm_Vertical", 30.0, 83.0)
-    place_component("J4", "MCR_Opt_X_Dial", "Connector_PinHeader_2.54mm", "PinHeader_1x10_P2.54mm_Vertical", 70.0, 83.0)
+    place_component("J5", "MCR_P2_Controls", "Connector_PinHeader_2.54mm", "PinHeader_1x19_P2.54mm_Vertical", 30.0, 88.0)
+    place_component("J4", "MCR_Opt_X_Dial", "Connector_PinHeader_2.54mm", "PinHeader_1x10_P2.54mm_Vertical", 75.0, 88.0)
     
-    # 4. DIP Switch Blocks (Rotated 90 degrees to be vertical)
-    place_component("SW1", "Game_Selector", "Button_Switch_THT", "SW_DIP_SPSTx08_Slide_9.78x22.5mm_W7.62mm_P2.54mm", 89.0, 55.0, 90)
-    place_component("SW2", "Cabinet_Options", "Button_Switch_THT", "SW_DIP_SPSTx08_Slide_9.78x22.5mm_W7.62mm_P2.54mm", 95.0, 55.0, 90)
+    # 4. DIP Switch Blocks (Vertical orientation = 0 deg, stacked North/South)
+    place_component("SW1", "Game_Selector", "Button_Switch_THT", "SW_DIP_SPSTx08_Slide_9.78x22.5mm_W7.62mm_P2.54mm", 100.0, 42.0)
+    place_component("SW2", "Cabinet_Options", "Button_Switch_THT", "SW_DIP_SPSTx08_Slide_9.78x22.5mm_W7.62mm_P2.54mm", 100.0, 68.0)
 
     # 5. Added Safety and Logic Hardware
-    place_component("U1", "Buck_Regulator", "Package_TO_SOT_THT", "TO-220-3_Vertical", 93.0, 30.0)
+    place_component("U1", "Buck_Regulator", "Package_TO_SOT_THT", "TO-220-3_Vertical", 108.0, 28.0)
     place_component("U2", "Optocoupler_P1", "Package_DIP", "DIP-16_W7.62mm", 12.0, 40.0)
-    place_component("U3", "Optocoupler_Sys", "Package_DIP", "DIP-16_W7.62mm", 12.0, 60.0)
-    place_component("U4", "Sync_Buffer", "Package_DIP", "DIP-20_W7.62mm", 78.0, 30.0)
-    place_component("U5", "Audio_Amplifier", "Package_DIP", "DIP-8_W7.62mm", 93.0, 70.0)
+    place_component("U3", "Optocoupler_Sys", "Package_DIP", "DIP-16_W7.62mm", 12.0, 65.0)
+    place_component("U4", "Sync_Buffer", "Package_DIP", "DIP-20_W7.62mm", 82.0, 32.0)
+    place_component("U5", "Audio_Amplifier", "Package_DIP", "DIP-8_W7.62mm", 108.0, 83.0)
 
     # 6. R2R Video DAC Resistors
     # Red DAC
-    place_component("R1", "3.9k_Red_LSB", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 38.0, 26.0)
-    place_component("R2", "2.0k_Red_Mid", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 38.0, 29.0)
-    place_component("R3", "1.0k_Red_MSB", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 38.0, 32.0)
+    place_component("R1", "3.9k_Red_LSB", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 38.0, 25.0)
+    place_component("R2", "2.0k_Red_Mid", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 38.0, 28.0)
+    place_component("R3", "1.0k_Red_MSB", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 38.0, 31.0)
     # Green DAC
-    place_component("R4", "3.9k_Green_LSB", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 48.0, 26.0)
-    place_component("R5", "2.0k_Green_Mid", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 48.0, 29.0)
-    place_component("R6", "1.0k_Green_MSB", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 48.0, 32.0)
+    place_component("R4", "3.9k_Green_LSB", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 48.0, 25.0)
+    place_component("R5", "2.0k_Green_Mid", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 48.0, 28.0)
+    place_component("R6", "1.0k_Green_MSB", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 48.0, 31.0)
     # Blue DAC
-    place_component("R7", "3.9k_Blue_LSB", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 58.0, 26.0)
-    place_component("R8", "2.0k_Blue_Mid", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 58.0, 29.0)
-    place_component("R9", "1.0k_Blue_MSB", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 58.0, 32.0)
+    place_component("R7", "3.9k_Blue_LSB", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 58.0, 25.0)
+    place_component("R8", "2.0k_Blue_Mid", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 58.0, 28.0)
+    place_component("R9", "1.0k_Blue_MSB", "Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal", 58.0, 31.0)
 
     # --- Draw Electrical Wires (Ratsnest Connectivity) ---
     print("Defining and routing electrical nets...")
