@@ -61,97 +61,18 @@ The daughterboard connects the Tang Console 2x20 headers directly to the cabinet
 
 ## 3. KiCad PCB Python Generation Script
 
-To programmatically build this board, open KiCad's **PCB Editor**, open the **Scripting Console** (`Tools -> Scripting Console`), copy the Python script below, and run it. It will automatically initialize the board, draw the edge cuts, and place the critical connector headers at their exact coordinates.
+To prevent code desynchronization, the Python generator script is maintained separately at [`tools/generate_pcb.py`](file:///Users/alans/Documents/development/Arcade-MCR2-TangFPGA/tools/generate_pcb.py).
 
-```python
-import pcbnew
-from pcbnew import wxPoint, wxSize, EDA_IU_TO_MM
+### How to Run the Generator:
+To programmatically generate the layout or apply changes to coordinates, execute the script from your terminal using KiCad's bundled Python interpreter:
 
-def generate_mcr_shield():
-    # Initialize a new board project
-    board = pcbnew.GetBoard()
-    if not board:
-        board = pcbnew.BOARD()
-        pcbnew.SetActiveBoard(board)
+```bash
+# Run the script to generate or update 'mcr_shield.kicad_pcb'
+/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3 tools/generate_pcb.py
+```
 
-    # Clean existing items
-    board.DeleteAll()
+After running the script, the updated board database is saved directly to [`mcr_shield.kicad_pcb`](file:///Users/alans/Documents/development/Arcade-MCR2-TangFPGA/mcr_shield.kicad_pcb). You can open this file in KiCad PCB Editor to view and route the traces.
 
-    # Define board dimensions: 120mm x 100mm (values in micrometers)
-    width = 120.0
-    height = 100.0
-    margin = 5.0
-
-    # Draw PCB Edge Outline on the Edge.Cuts layer
-    edge_layer = board.GetLayerID("Edge.Cuts")
-    
-    # Coordinates in nanometers (1mm = 1,000,000 nm)
-    x_min, y_min = int(margin * 1000000), int(margin * 1000000)
-    x_max, y_max = int((width + margin) * 1000000), int((height + margin) * 1000000)
-
-    corners = [
-        wxPoint(x_min, y_min),
-        wxPoint(x_max, y_min),
-        wxPoint(x_max, y_max),
-        wxPoint(x_min, y_max)
-    ]
-
-    for i in range(4):
-        p1 = corners[i]
-        p2 = corners[(i + 1) % 4]
-        seg = pcbnew.PCB_SHAPE(board)
-        seg.SetShape(pcbnew.SHAPE_T_SEGMENT)
-        seg.SetStart(p1)
-        seg.SetEnd(p2)
-        seg.SetLayer(edge_layer)
-        board.Add(seg)
-
-    print("PCB Edge Outline drawn successfully!")
-
-    # Helper function to place standard connectors/pin headers
-    def place_connector(reference, value, footprint_name, x_mm, y_mm, rotation_deg=0):
-        # Load standard KiCad connector footprints
-        footprint = pcbnew.FootprintLoad(board.GetProject(), footprint_name)
-        if not footprint:
-            # Fallback to standard library connector if custom not loaded
-            footprint = pcbnew.FootprintLoad("", "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical")
-        
-        if footprint:
-            footprint.SetReference(reference)
-            footprint.SetValue(value)
-            
-            # Position (convert mm to nanometers)
-            pos = wxPoint(int(x_mm * 1000000), int(y_mm * 1000000))
-            footprint.SetPosition(pos)
-            footprint.SetOrientation(rotation_deg * 10) # KiCad expects 10th of a degree
-            
-            board.Add(footprint)
-            print(f"Placed {reference} ({value}) at X={x_mm}mm, Y={y_mm}mm")
-
-    # --- Place Connectors and Headers ---
-    # 1. Tang Console Host Sockets (2x20 Pin Headers spaced 50mm apart)
-    place_connector("JP1", "Tang_2x20_H1", "Connector_PinHeader_2.54mm:PinHeader_2x20_P2.54mm_Vertical", 65.0, 45.0)
-    place_connector("JP2", "Tang_2x20_H2", "Connector_PinHeader_2.54mm:PinHeader_2x20_P2.54mm_Vertical", 65.0, 65.0)
-
-    # 2. MCR Top Connectors (Controls, Coin, Video, Power)
-    place_connector("J2", "MCR_P1_Controls", "Connector_PinHeader_2.54mm:PinHeader_1x15_P2.54mm_Vertical", 20.0, 12.0)
-    place_connector("J3", "MCR_System_Coin", "Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical", 55.0, 12.0)
-    place_connector("J_VID", "MCR_Video_Out", "Connector_PinHeader_2.54mm:PinHeader_1x09_P2.54mm_Vertical", 85.0, 12.0)
-    place_connector("P_IN", "Power_+12V_GND", "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical", 115.0, 12.0)
-
-    # 3. MCR Bottom Connectors (P2 Controls, Spinners, DIP Switches)
-    place_connector("J5", "MCR_P2_Controls", "Connector_PinHeader_2.54mm:PinHeader_1x19_P2.54mm_Vertical", 25.0, 93.0)
-    place_connector("J4", "MCR_Opt_X_Dial", "Connector_PinHeader_2.54mm:PinHeader_1x10_P2.54mm_Vertical", 75.0, 93.0)
-    
-    # 4. DIP Switch Blocks
-    place_connector("SW1", "Game_Selector", "Button_Switch_THT:SW_DIP_SPSTx08_Slide_9.78x22.5mm_W7.62mm_P2.54mm", 100.0, 93.0)
-    place_connector("SW2", "Cabinet_Options", "Button_Switch_THT:SW_DIP_SPSTx08_Slide_9.78x22.5mm_W7.62mm_P2.54mm", 115.0, 93.0)
-
-    # Refresh KiCad canvas view
-    pcbnew.Refresh()
-
-# Execute script
-generate_mcr_shield()
 ```
 
 ---
