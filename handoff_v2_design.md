@@ -184,6 +184,28 @@ Below is the pin mapping between the original Bally Midway MCR harness and the 2
 | | Audio Left PWM | `audio_l` | P10 |
 | | Audio Right PWM | `audio_r` | P11 |
 
+### Hardware Configuration DIP Switches (Game & Settings Selector)
+These pins map the two 8-position DIP switch blocks on the custom shield to the FPGA:
+
+| DIP Block | Switch | Signal | 2x20 Header Pin Name | FPGA Pin |
+| :--- | :--- | :--- | :--- | :--- |
+| **Block 1 (Game Selector)** | SW1.1 | Game Selector Bit 0 | `game_sel[0]` | R10 |
+| | SW1.2 | Game Selector Bit 1 | `game_sel[1]` | R11 |
+| | SW1.3 | Game Selector Bit 2 | `game_sel[2]` | T10 |
+| | SW1.4 | Game Selector Bit 3 | `game_sel[3]` | T11 |
+| | SW1.5 | Game Selector Bit 4 | `game_sel[4]` | U10 |
+| | SW1.6 | Config Mode Bit 0 | `game_sel[5]` | U11 |
+| | SW1.7 | Config Mode Bit 1 | `game_sel[6]` | V10 |
+| | SW1.8 | Config Mode Bit 2 | `game_sel[7]` | V11 |
+| **Block 2 (Game Options)** | SW2.1 | original DIP 1 (Coinage) | `game_opt[0]` | W10 |
+| | SW2.2 | original DIP 2 | `game_opt[1]` | W11 |
+| | SW2.3 | original DIP 3 (Difficulty) | `game_opt[2]` | Y10 |
+| | SW2.4 | original DIP 4 | `game_opt[3]` | Y11 |
+| | SW2.5 | original DIP 5 (Lives) | `game_opt[4]` | AA10 |
+| | SW2.6 | original DIP 6 | `game_opt[5]` | AA11 |
+| | SW2.7 | original DIP 7 (Demo Sound) | `game_opt[6]` | AB10 |
+| | SW2.8 | original DIP 8 (Test Mode) | `game_opt[7]` | AB11 |
+
 *Note: You can easily update these constraints in your target project's `.cst` file to match whatever layout you choose for your custom KiCad or Altium PCB Shield.*
 
 ---
