@@ -73,8 +73,6 @@ To programmatically generate the layout or apply changes to coordinates, execute
 
 After running the script, the updated board database is saved directly to [`mcr_shield.kicad_pcb`](file:///Users/alans/Documents/development/Arcade-MCR2-TangFPGA/mcr_shield.kicad_pcb). You can open this file in KiCad PCB Editor to view and route the traces.
 
-```
-
 ---
 
 ## 4. Power Supply & Level-Shifting Specification
