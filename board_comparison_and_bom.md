@@ -6,21 +6,22 @@ This document provides a cost and feature comparison of the various Sipeed Tang 
 
 ## 1. FPGA Board & Hardware Setup Comparison
 
-Here is a comparison of the three primary hardware architectures we evaluated for running the MCR arcade core, along with their estimated retail pricing.
+Here is a comparison of the primary hardware architectures we evaluated for running the MCR arcade core, including where the **iCEPi Zero** fits in.
 
-| Specification / Option | Tang Primer 25K (V1 On-Chip) | Tang Primer 25K (V2 SDRAM) | Tang Console 60K | Tang Console 138K |
-| :--- | :--- | :--- | :--- | :--- |
-| **FPGA Chip** | GW5A-LV25 | GW5A-LV25 | GW5A-LV60 | GW5AST-LV138 |
-| **Logic Cells (LUT4)** | 23,040 | 23,040 | 60,000 | 138,240 |
-| **On-Chip Block RAM** | 126 KB (56 blocks) | 126 KB (56 blocks) | ~320 KB (140+ blocks) | 765 KB (340 blocks) |
-| **External Memory** | None | 64Mbit SDRAM Card | **512MB DDR3** (On SOM) | **1GB DDR3** (On SOM) |
-| **Free GPIO Pins** | **26** (40-Pin) + **8** (PMOD) | **8** (PMOD 1 only) | **92** (76 GPIO + 16 PMOD) | **92** (76 GPIO + 16 PMOD) |
-| **MCR Game Support** | Partial (No Playfield Gfx) | Full MCR-1/2/3 Games | Full MCR-1/2/3 Games | Full MCR-1/2/3 Games |
-| **Video & Audio Path** | On-board parallel | HDMI -> VGA/Audio Dongle | Onboard Native HDMI & DAC | Onboard Native HDMI & DAC |
-| **Pin Congestion** | Low | High (Requires Shift Reg) | Zero | Zero |
-| **Estimated Price (Kit)**| **~$25.00** | **~$35.00** (Kit + SDRAM) | **~$55.00** (SOM + Dock) | **~$99.00** (SOM + Dock) |
-| **Extra Modules Needed** | PMOD HDMI ($5) | PMOD HDMI ($5) + Dongle ($5) | None | None |
-| **Total Hardware Cost**  | **~$30.00** | **~$45.00** | **~$55.00** | **~$99.00** |
+| Specification / Option | Tang Primer 25K (V1 On-Chip) | Tang Primer 25K (V2 SDRAM) | iCEPi Zero (Lattice ECP5) | Tang Console 60K | Tang Console 138K |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **FPGA Chip** | GW5A-LV25 | GW5A-LV25 | Lattice ECP5U-25F | GW5A-LV60 | GW5AST-LV138 |
+| **Logic Cells (LUT)** | 23,040 | 23,040 | 24,000 | 60,000 | 138,240 |
+| **On-Chip Block RAM** | 126 KB (56 blocks) | 126 KB (56 blocks) | 112 KB | ~320 KB (140+ blocks) | 765 KB (340 blocks) |
+| **External Memory** | None | 64Mbit SDRAM Card | **32MB SDRAM** (Onboard) | **512MB DDR3** (On SOM) | **1GB DDR3** (On SOM) |
+| **Free GPIO Pins** | **26** (40-Pin) + **8** (PMOD) | **8** (PMOD 1 only) | **28** (40-Pin Header) | **92** (76 GPIO + 16 PMOD) | **92** (76 GPIO + 16 PMOD) |
+| **MCR Game Support** | Partial (No Playfield Gfx) | Full MCR-1/2/3 Games | Full MCR-1/2/3 Games | Full MCR-1/2/3 Games | Full MCR-1/2/3 Games |
+| **Video & Audio Path** | On-board parallel | HDMI -> VGA/Audio Dongle | GPDI Port / Parallel | Onboard Native HDMI & DAC | Onboard Native HDMI & DAC |
+| **Pin Congestion** | Low | High (Pmod sharing) | Low (SDRAM is onboard) | Zero | Zero |
+| **Toolchain** | Gowin EDA | Gowin EDA | **Open Source** (yosys/nextpnr) | Gowin EDA | Gowin EDA |
+| **Estimated Price (Kit)**| **~$25.00** | **~$35.00** (Kit + SDRAM) | **~$49.00** | **~$55.00** (SOM + Dock) | **~$99.00** (SOM + Dock) |
+| **Extra Modules Needed** | PMOD HDMI ($5) | PMOD HDMI ($5) + Dongle ($5) | GPDI-to-HDMI Cable ($5) | None | None |
+| **Total Hardware Cost**  | **~$30.00** | **~$45.00** | **~$54.00** | **~$55.00** | **~$99.00** |
 
 ### Recommendations:
 * **Best Value / Easiest Integration: Tang Console 60K ($55)**
