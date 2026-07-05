@@ -254,4 +254,48 @@ We recommend placing an **8-position DIP Switch Block** on the custom Shield PCB
 ```
 *   **Pins needed:** Since the **Tang Console 60K/138K** has 92 free GPIOs, allocating **8 dedicated pins** directly to these switches is trivial and leaves the board with massive IO capacity.
 
+---
+
+## 6. Physical Game Options DIP Switches (Coinage, Difficulty, Lives)
+
+On the original arcade CPU boards, a physical 8-position DIP switch block allowed operators to set game difficulty, coinage, lives, and test modes. 
+
+*   **Virtual OSD (MiSTer):** In emulation setups, these settings are virtualized and adjusted via the On-Screen Display (OSD) menu, writing to virtual registers (`input_3`/`input_4`).
+*   **Physical Shield (Tang Console):** For an authentic cabinet integration, we place a second physical **8-position DIP Switch Block** on the custom Shield PCB. The FPGA routes these switches directly to the core's input registers, allowing you to configure the cabinet settings by flipping hardware switches inside the coin door.
+
+### Unified Pin Budget Math (Tang Console 60K/138K)
+Because the Tang Console offers **92 free GPIO pins**, we can route every single arcade subsystem in parallel without any multiplexing:
+
+1.  **Cabinet Controls (J2 & J3):** 8 pins
+2.  **Spinner / Steering (J4 - Opt X):** 8 pins
+3.  **Player 2 / Trackball (J5 - Opt Y):** 13 pins
+4.  **Cabinet Video (RGBS + CSync):** 12 pins
+5.  **PWM Audio Outputs:** 2 pins
+6.  **ROM Game Selector DIP Switches:** 8 pins (5 for games, 3 for system configuration)
+7.  **Original Game Option DIP Switches:** 8 pins (Difficulty, Coinage, Lives)
+
+*   **Total Pins Required:** **59 pins**
+*   **Pins Remaining Free:** **33 pins** (Leaves massive expansion capacity on the 92-pin headers)
+
+---
+
+## 7. Multi-Game Implementation: Unified Core vs. Gowin Multi-boot
+
+To support the 22 games in the Bally Midway library, we have two hardware implementation architectures available:
+
+### Option A: The Unified "Super-Core"
+We compile a single, parameterizable FPGA bitstream containing the shared Z80 CPUs and a multiplexed video/audio engine. 
+*   **Resource Footprint:** Takes approximately **18,000 to 20,000 LUTs** (fits comfortably in 33% of the GW5A-LV60's capacity).
+*   **How it works:** The bootloader reads the game selector DIP switches at startup, loads the corresponding ROM assets from the SD card into BRAM/DRAM, and dynamically toggles the video scanlines, palette depth, and sound engine routing (AY-3-8910 vs. Cheap Squeak Deluxe) to match that game.
+
+### Option B: Gowin Multi-Boot (Dynamic Hardware Reconfiguration)
+Instead of writing a complex unified Verilog core, we leverage the Gowin FPGA's built-in **Multi-boot (IPREPROGRAM)** feature:
+*   **How it works:**
+    1.  We compile separate, optimized dedicated bitstreams for each generation: `mcr1.fs`, `mcr2.fs`, `mcr3.fs`, `mcr_scroll.fs`, and `mcr_mono.fs`. These are written to different sectors of the SPI Flash or saved as files on the MicroSD card.
+    2.  The FPGA is programmed to load a tiny, lightweight **Bootloader Core** (occupying < 1,000 LUTs) on power-up.
+    3.  The bootloader reads the Game Selector DIP switches, selects the target bitstream, and triggers a hardware **reprogram command** inside the FPGA.
+    4.  Within **50 milliseconds**, the FPGA physically morphs/reprograms itself to become a dedicated MCR-1, MCR-2, MCR-3, Scroll, or Monoboard chip and boots the game.
+*   **Benefit:** This is the most robust and professional approach. It keeps compile times fast and lets us develop and optimize each core independently without logic bloat.
+
+
 
