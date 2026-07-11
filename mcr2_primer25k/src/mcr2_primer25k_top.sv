@@ -250,8 +250,8 @@ wire [7:0] test_r = test_de ? {test_hcnt[8:6], 5'b00000} : 8'd0;
 wire [7:0] test_g = test_de ? {test_hcnt[5:3], 5'b00000} : 8'd0;
 wire [7:0] test_b = test_de ? {test_vcnt[5:3], 5'b00000} : 8'd0;
 
-// Multiplex output based on reset2 button (H10) being pressed
-wire use_test_pattern = reset2;
+// Multiplex output based on reset2 button (H10) being pressed (defaulted to test pattern)
+wire use_test_pattern = 1'b1;
 
 wire [7:0] final_r = use_test_pattern ? test_r : hdmi_r_reg;
 wire [7:0] final_g = use_test_pattern ? test_g : hdmi_g_reg;
@@ -263,7 +263,7 @@ wire       final_vs = use_test_pattern ? test_vsync : hdmi_vs_reg;
 hdmi_tx hdmi_tx_inst (
     .clk_pixel(clk_pixel),
     .clk_5x_pixel(clk_p5),
-    .resetn(~core_reset),
+    .resetn(1'b1), // Force transmitter active to bypass reset lock issues
     .rgb_r(final_r),
     .rgb_g(final_g),
     .rgb_b(final_b),
