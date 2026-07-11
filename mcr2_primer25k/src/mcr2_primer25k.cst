@@ -76,8 +76,6 @@ IO_PORT "audio_l" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
 IO_LOC "audio_r" C2;
 IO_PORT "audio_r" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
 
-// Debug LEDs (Active Low)
-IO_LOC "led[1]" E8;    // LED1 (Ready)
-IO_PORT "led[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
-IO_LOC "led[0]" D7;    // LED0 (Done)
-IO_PORT "led[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+// Debug LED (Active Low user LED on core board)
+IO_LOC "led" L6;
+IO_PORT "led" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;

@@ -34,8 +34,8 @@ module mcr2_primer25k_top (
     output       audio_l,
     output       audio_r,
 
-    // Debug LEDs
-    output [1:0] led
+    // Debug LED
+    output       led
 );
 
 // --- Clock Generation ---
@@ -238,8 +238,7 @@ ds_dac dac_r (
     .dout(audio_r)
 );
 
-// --- Debug LEDs (Active Low) ---
-assign led[0] = ~pll_locked; // LED 0 (Ready) turns ON when PLL locks
-assign led[1] = ~core_reset; // LED 1 (Done) turns ON when core exits reset
+// --- Debug LED (Active Low) ---
+assign led = ~pll_locked; // LED turns ON (low) when PLL locks successfully
 
 endmodule
