@@ -50,7 +50,7 @@ PLLA PLLA_inst (
 );
 
 defparam PLLA_inst.FCLKIN = "50";
-defparam PLLA_inst.IDIV_SEL = 2;
+defparam PLLA_inst.IDIV_SEL = 1;
 defparam PLLA_inst.FBDIV_SEL = 1;
 defparam PLLA_inst.CLKFB_SEL = "INTERNAL";
 defparam PLLA_inst.ODIV0_SEL = 8;
