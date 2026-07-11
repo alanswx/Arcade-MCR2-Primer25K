@@ -146,6 +146,8 @@ port(
  video_hs       : out std_logic;
  video_vs       : out std_logic;
  video_ce       : out std_logic;
+ hcnt_out       : out std_logic_vector(9 downto 0);
+ vcnt_out       : out std_logic_vector(9 downto 0);
  
  separate_audio : in  std_logic;
  audio_out_l    : out std_logic_vector(15 downto 0);
@@ -331,7 +333,7 @@ begin
 		if pix_ena = '1' then
 
 			hcnt <= hcnt + 1;
-			if hcnt = 857 then
+			if hcnt = 633 then
 				hcnt <= (others=>'0');
 				vcnt <= vcnt + 1;
 				if (vcnt = 524 and tv15Khz_mode = '0') or (vcnt = 263 and tv15Khz_mode = '1') then
@@ -341,22 +343,22 @@ begin
 			end if;
 
 			if tv15Khz_mode = '0' then 
-				--	progressive mode (480p: 720x480 @ 60Hz timing)
+				--	progressive mode
 
-				if vcnt = 489 then video_vs <= '0'; end if; -- front porch 9
-				if vcnt = 495 then video_vs <= '1'; end if; -- sync pulse   6
-				                                            -- back porch  30 
+				if vcnt = 490-1 then video_vs <= '0'; end if; -- front porch 10
+				if vcnt = 492-1 then video_vs <= '1'; end if; -- sync pulse   2
+				                                              -- back porch  33 
 																		 
-				if hcnt = 736 then video_hs <= '0'; end if; -- front porch 16
-				if hcnt = 798 then video_hs <= '1'; end if; -- sync pulse  62
-                                                            -- back porch  60
+				if hcnt = 512+13 then video_hs <= '0'; end if;  -- front porch 13
+				if hcnt = 512+13+77 then video_hs <= '1'; end if;  -- sync pulse  77
+                                                                -- back porch  32
 				video_hblank <= '1';
-				if hcnt >= 104 and hcnt < 616 then          -- 512 active pixels centered in 720
+				if hcnt < 512 then
 					video_hblank <= '0';
 				end if;
 				
 				video_vblank <= '1';
-				if vcnt < 480 then                          -- 480 active lines
+				if vcnt < 480 then
 					video_vblank <= '0';
 				end if;
 
@@ -840,5 +842,8 @@ begin
 end process;
 
 flip_out <= flip_reg;
+
+hcnt_out <= hcnt;
+vcnt_out <= vcnt;
 
 end struct;

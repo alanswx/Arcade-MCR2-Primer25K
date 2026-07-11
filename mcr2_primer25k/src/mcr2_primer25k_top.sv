@@ -148,6 +148,9 @@ wire       hblank, vblank;
 wire       hs, vs, cs;
 wire [15:0] audio_l_val, audio_r_val;
 
+wire [9:0] core_hcnt;
+wire [9:0] core_vcnt;
+
 mcr2 mcr2_core (
     .clock_40(clk_sys),
     .reset(core_reset),
@@ -161,6 +164,8 @@ mcr2 mcr2_core (
     .video_hs(hs),
     .video_vs(vs),
     .video_csync(cs),
+    .hcnt_out(core_hcnt),
+    .vcnt_out(core_vcnt),
 
     // Force 31kHz mode for HDMI debugging, or use 15kHz mode for CRT.
     // We tie tv15Khz_mode to 1'b0 (force 31kHz scan-doubled VGA mode) for Version 1.
@@ -200,38 +205,41 @@ assign cab_hs    = hs;
 assign cab_vs    = vs;
 assign cab_csync = cs;
 
-// --- HDMI Output Wrapper ---
-// Upscale 9-bit RGB to 24-bit RGB (pad with 5 bits of LSBs)
-wire [7:0] hdmi_r = {r, 5'b00000};
-wire [7:0] hdmi_g = {g, 5'b00000};
-wire [7:0] hdmi_b = {b, 5'b00000};
-wire       hdmi_de = ~(hblank | vblank);
+// --- HDMI Output Wrapper with 720p30 Scan Doubler & Padder ---
+// Since the monitor requires 720p30 (37.5 MHz pixel clock) to lock successfully,
+// we buffer the 512-pixel active lines from the game core in a dual-port BRAM
+// line buffer, then read them out twice as fast (pixel doubled) and centered
+// inside a standard compliant 1280x720 @ 30Hz frame.
 
-// Register video signals in clk_pixel domain to cross clock domains safely
-reg [7:0] hdmi_r_reg;
-reg [7:0] hdmi_g_reg;
-reg [7:0] hdmi_b_reg;
-reg       hdmi_de_reg;
-reg       hdmi_hs_reg;
-reg       hdmi_vs_reg;
+// Dual-port line buffer: 1024 words of 9 bits
+reg [8:0] line_buffer [1023:0];
 
-always @(posedge clk_pixel) begin
-    hdmi_r_reg  <= hdmi_r;
-    hdmi_g_reg  <= hdmi_g;
-    hdmi_b_reg  <= hdmi_b;
-    hdmi_de_reg <= hdmi_de;
-    hdmi_hs_reg <= hs;
-    hdmi_vs_reg <= vs;
+// Write side: game core writes active pixels at clk_sys (37.5 MHz)
+always @(posedge clk_sys) begin
+    if (!vblank && !hblank && (core_hcnt < 512)) begin
+        line_buffer[{core_vcnt[0], core_hcnt[8:0]}] <= {r, g, b};
+    end
 end
 
-// --- Diagnostic Test Pattern Generator (Standard 480p: 720x480 @ 60Hz timing) ---
-reg [9:0] test_hcnt = 0;
-reg [9:0] test_vcnt = 0;
+// Synchronize the write buffer index to clk_pixel (37.5 MHz) domain
+reg core_vcnt0_sync1 = 0;
+reg core_vcnt0_sync2 = 0;
+always @(posedge clk_pixel) begin
+    core_vcnt0_sync1 <= core_vcnt[0];
+    core_vcnt0_sync2 <= core_vcnt0_sync1;
+end
+
+// Read side: we read from the line buffer that is NOT currently being written to
+wire read_buffer_idx = ~core_vcnt0_sync2;
+
+// --- 720p30 Compliant Sync & Scan Coordinates Generator (37.5 MHz) ---
+reg [10:0] test_hcnt = 0;
+reg [9:0]  test_vcnt = 0;
 
 always @(posedge clk_pixel) begin
-    if (test_hcnt == 857) begin
+    if (test_hcnt == 1649) begin
         test_hcnt <= 0;
-        if (test_vcnt == 524) begin
+        if (test_vcnt == 749) begin
             test_vcnt <= 0;
         end else begin
             test_vcnt <= test_vcnt + 1;
@@ -241,25 +249,44 @@ always @(posedge clk_pixel) begin
     end
 end
 
-// Active-low syncs for standard 480p timing
-wire test_hsync = ~((test_hcnt >= 720 + 16) && (test_hcnt < 720 + 16 + 62));
-wire test_vsync = ~((test_vcnt >= 480 + 9) && (test_vcnt < 480 + 9 + 6));
-wire test_de    = (test_hcnt < 720) && (test_vcnt < 480);
+// Active-high syncs for compliant 720p30 timing
+wire test_hsync = (test_hcnt >= 1280 + 110) && (test_hcnt < 1280 + 110 + 40);
+wire test_vsync = (test_vcnt >= 720 + 5) && (test_vcnt < 720 + 5 + 5);
+wire test_de    = (test_hcnt < 1280) && (test_vcnt < 720);
 
-// Simple color bars / test pattern
-wire [7:0] test_r = test_de ? {test_hcnt[8:6], 5'b00000} : 8'd0;
-wire [7:0] test_g = test_de ? {test_hcnt[5:3], 5'b00000} : 8'd0;
-wire [7:0] test_b = test_de ? {test_vcnt[5:3], 5'b00000} : 8'd0;
+// Simple color bars diagnostic pattern (fills full 720p active area)
+wire [7:0] bar_r = test_de ? {test_hcnt[9:7], 5'b00000} : 8'd0;
+wire [7:0] bar_g = test_de ? {test_hcnt[6:4], 5'b00000} : 8'd0;
+wire [7:0] bar_b = test_de ? {test_vcnt[6:4], 5'b00000} : 8'd0;
+
+// Game video centering inside 720p30 frame:
+// Horizontally: 512 * 2 = 1024 active pixels (from 128 to 1151).
+// Vertically: 480 active lines (from 120 to 599).
+wire game_active_h = (test_hcnt >= 128) && (test_hcnt < 1152);
+wire game_active_v = (test_vcnt >= 120) && (test_vcnt < 600);
+wire game_active   = game_active_h && game_active_v;
+
+wire [9:0] test_hcnt_offset = test_hcnt - 10'd128;
+wire [8:0] test_hcnt_core   = test_hcnt_offset[9:1]; // divide by 2 (pixel doubling)
+
+reg [8:0] buffer_out;
+always @(posedge clk_pixel) begin
+    buffer_out <= line_buffer[{read_buffer_idx, test_hcnt_core}];
+end
+
+wire [7:0] game_r = game_active ? {buffer_out[8:6], 5'b00000} : 8'd0;
+wire [7:0] game_g = game_active ? {buffer_out[5:3], 5'b00000} : 8'd0;
+wire [7:0] game_b = game_active ? {buffer_out[2:0], 5'b00000} : 8'd0;
 
 // Multiplex output based on reset2 button (H10) being pressed (default to game core, S2 toggles test pattern)
 wire use_test_pattern = reset2;
 
-wire [7:0] final_r = use_test_pattern ? test_r : hdmi_r_reg;
-wire [7:0] final_g = use_test_pattern ? test_g : hdmi_g_reg;
-wire [7:0] final_b = use_test_pattern ? test_b : hdmi_b_reg;
-wire       final_de = use_test_pattern ? test_de : hdmi_de_reg;
-wire       final_hs = use_test_pattern ? test_hsync : hdmi_hs_reg;
-wire       final_vs = use_test_pattern ? test_vsync : hdmi_vs_reg;
+wire [7:0] final_r = use_test_pattern ? bar_r : game_r;
+wire [7:0] final_g = use_test_pattern ? bar_g : game_g;
+wire [7:0] final_b = use_test_pattern ? bar_b : game_b;
+wire       final_de = test_de;
+wire       final_hs = test_hsync;
+wire       final_vs = test_vsync;
 
 hdmi_tx hdmi_tx_inst (
     .clk_pixel(clk_pixel),
