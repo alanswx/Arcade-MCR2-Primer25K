@@ -197,11 +197,18 @@ there; the IDE JSON equivalents are the CPU/MSPI/SSPI/etc. booleans).
 
 ## Gotchas
 
-- **IDE builds need `impl/<project>_process_config.json` with `"TopModule"`
-  set** (the `.gprj` does not store it). Without it, GowinSynthesis auto-picks
-  an uninstantiated library module (e.g. `T80pa`) as top and PnR fails with
-  PA2024 "ports exceed the resource limit". The headless `build.tcl` flow is
-  immune (passes `-top_module` explicitly).
+- **The IDE and `build.tcl` are separate config paths, and the IDE rewrites
+  its JSON with GUI defaults on save** — settings put there by hand get
+  clobbered. Everything `build.tcl` sets must be mirrored in
+  `impl/<project>_process_config.json` for IDE builds:
+  | build.tcl | JSON key | symptom if wrong |
+  |---|---|---|
+  | `-top_module` | `TopModule` | synthesis picks `T80pa`; PnR error PA2024 |
+  | `-verilog_std sysv2017` | `Verilog_Standard` | `.sv` parsed as Verilog-2001: "single value range not allowed" (usb_hid_host.v:42) |
+  | `-use_cpu_as_gpio` etc. | `CPU`,`MSPI`,`SSPI`,`READY`,`DONE`,`I2C` = true | "location is a dedicated pin (CPU)" on J10/`vga_*` pins (GUI: Place & Route → Dual-Purpose Pin) |
+  Never set `JTAG` true — that removes the programming interface.
+  **The headless `build.tcl` flow is immune to all of this** and is the
+  recommended path on any machine (`gw_sh build.tcl` from the board dir).
 - **Bank 9 is a 1.5 V bank on the 60K once DDR3 is used** (the DDR3 data
   group lives there). Anything on Bank 9 balls (user keys AA13/AB13, Y12,
   Y13, Y14, W11…) must be `IO_TYPE=LVCMOS15 BANK_VCCIO=1.5` — LVCMOS33
