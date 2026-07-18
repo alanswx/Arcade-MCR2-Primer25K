@@ -226,10 +226,11 @@ wire u_sel   = pad_sync2[1], u_sta   = pad_sync2[0];
 // All inputs come from the USB pad (PMOD sockets carry the PmodVGA):
 // common decode: dpad = joystick, A = Button 1, Start = Start1,
 // Select = Coin1. B/X/Y are game-specific. Board key 2 also pulses Coin 1.
-wire m_left    = u_left;
-wire m_right   = u_right;
-wire m_up      = u_up;
-wire m_down    = u_down;
+// D-pad is masked while Select is held (Select+dpad = capture-delay tuning).
+wire m_left    = u_left  & ~u_sel;
+wire m_right   = u_right & ~u_sel;
+wire m_up      = u_up    & ~u_sel;
+wire m_down    = u_down  & ~u_sel;
 wire m_start1  = u_sta;
 wire m_coin1   = u_sel | key_s2;
 wire m_service = 1'b0;
@@ -411,9 +412,22 @@ assign pmod1_io = sock_swap ? j1_bus : j2_bus;
 
 // The core's RGB output lags its hcnt by a fixed pipeline delay (tile fetch ->
 // gfx ROM -> palette -> output regs); shift the capture window back by
-// CAP_DELAY so each line's pixels land at the right offsets. Tune by +/-1 if
-// a sliver shows on the left/right edge (see handoff v3).
-localparam [9:0] CAP_DELAY = 10'd13;
+// cap_delay so each line's pixels land at the right offsets.
+// LIVE TUNING: hold Select and tap D-pad Right (+1) / Left (-1) while
+// watching the left edge - garbage/overlap on the LEFT means increase.
+// The current value is reported in the UART beacon as "dXX" (hex); once the
+// sweet spot is found, hardcode it as the reset value below.
+// (The D-pad is masked from the game while Select is held; note Select
+// itself still inserts a coin - harmless during tuning.)
+localparam [4:0] CAP_DELAY_DEFAULT = 5'd13;
+reg [4:0] cap_delay = CAP_DELAY_DEFAULT;
+reg tune_l_r = 0, tune_r_r = 0;
+always @(posedge clk_sys) begin
+    tune_l_r <= u_sel & u_left;
+    tune_r_r <= u_sel & u_right;
+    if (u_sel & u_left  & ~tune_l_r & (cap_delay != 5'd0))  cap_delay <= cap_delay - 1'b1;
+    if (u_sel & u_right & ~tune_r_r & (cap_delay != 5'd31)) cap_delay <= cap_delay + 1'b1;
+end
 
 // One strobe per core pixel: hcnt advances at the 20 MHz pixel rate (every
 // other clk_sys cycle)
@@ -421,7 +435,7 @@ reg [9:0] hcnt_r;
 always @(posedge clk_sys) hcnt_r <= core_hcnt;
 wire pixel_tick = (hcnt_r != core_hcnt);
 
-wire cap_active = !vblank && (core_hcnt >= CAP_DELAY) && (core_hcnt < CAP_DELAY + 10'd512);
+wire cap_active = !vblank && (core_hcnt >= {5'b0, cap_delay}) && (core_hcnt < {5'b0, cap_delay} + 10'd512);
 wire fb_we = pixel_tick && cap_active;
 // RGB444: replicate each 3-bit channel's MSB into bit 0 (as the VGA DAC does)
 wire [11:0] fb_data = {r, r[2], g, g[2], b, b[2]};
@@ -452,6 +466,7 @@ uart_beacon #(.CLK_HZ(40_000_000), .BAUD(115200)) beacon (
     .ddr_rst(fb_ddr_rst),
     .cnt_x(hb_x1[25:10]),
     .cnt_q(hb_27[24:17]),
+    .aux({3'b000, cap_delay}),
     .txd(uart_tx)
 );
 

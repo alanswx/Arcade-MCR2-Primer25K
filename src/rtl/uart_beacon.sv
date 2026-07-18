@@ -17,11 +17,12 @@ module uart_beacon #(
     input             ddr_rst,
     input      [15:0] cnt_x,
     input      [7:0]  cnt_q,
+    input      [7:0]  aux,      // free-form status byte, printed as "dXX"
     output reg        txd = 1'b1
 );
 
 localparam DIV = CLK_HZ / BAUD;            // 347 @ 40 MHz
-localparam MSG_LEN = 20;
+localparam MSG_LEN = 24;
 localparam GAP_CYCLES = CLK_HZ / 2;        // ~0.5 s between lines
 
 function [7:0] hexchar(input [3:0] n);
@@ -32,6 +33,7 @@ endfunction
 reg        l_calib, l_rst;
 reg [15:0] l_x;
 reg [7:0]  l_q;
+reg [7:0]  l_aux;
 
 reg [8:0]  baud_cnt = 0;
 reg [3:0]  bit_idx  = 0;   // 0 = start, 1..8 = data, 9 = stop
@@ -60,8 +62,12 @@ always @(*) begin
         5'd15: cur = "q";
         5'd16: cur = hexchar(l_q[7:4]);
         5'd17: cur = hexchar(l_q[3:0]);
-        5'd18: cur = 8'h0D;
-        5'd19: cur = 8'h0A;
+        5'd18: cur = " ";
+        5'd19: cur = "d";
+        5'd20: cur = hexchar(l_aux[7:4]);
+        5'd21: cur = hexchar(l_aux[3:0]);
+        5'd22: cur = 8'h0D;
+        5'd23: cur = 8'h0A;
         default: cur = " ";
     endcase
 end
@@ -80,6 +86,7 @@ always @(posedge clk) begin
             l_rst    <= ddr_rst;
             l_x      <= cnt_x;
             l_q      <= cnt_q;
+            l_aux    <= aux;
         end
     end else begin
         if (baud_cnt == DIV - 1) begin

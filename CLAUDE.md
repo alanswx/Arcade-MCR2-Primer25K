@@ -107,8 +107,16 @@ violations. Do not remove; instance names (`pll_inst/PLLA_inst/CLKOUT1`,
 `clk_div_inst/CLKOUT`) must match the top.
 
 ### HDMI video — 60K: DDR3 framebuffer (current)
+**Bring-up lesson: the framebuffer's `clk_g` (50 MHz DDR3-controller/mDRP
+clock) MUST come from a PLL output, not the raw clock pad.** Pad-fed clk_g
+put a derived controller clock on generic routing (the build's only warning,
+PR1014) and the DDR3 IP never started — and since the 74.25 MHz pixel clock
+is generated *by* the DDR3 IP (`clk_x1` = 297/4), HDMI was completely dead.
+`gowin_pll_mcr2` now has a dedicated 50 MHz output (CLKOUT2) for this.
+
 The 60K top streams the core's native pixels (512×480, RGB444, one `fb_we`
-per 20 MHz pixel, `CAP_DELAY=13` capture-window shift) into
+per 20 MHz pixel, `cap_delay` capture-window shift — live-tunable with
+Select+D-pad, current value in the UART beacon as `dXX`) into
 `ddr3_framebuffer` (gbatang), which upscales to 1280×720@60 HDMI with audio
 — fully decoupled from core timing: no shimmer, no genlock, and HDMI stays
 alive in 15 kHz mode (capture height switches to 240). `disp_width=960`
@@ -138,8 +146,12 @@ the bg tile ROMs. `dpram` in ROM mode reads only port A; the `dl_*` download
 bus is inert in these standalone builds.
 
 ### Buttons / diagnostics
-S1 = reset. S2 (`reset2`) = free-running 640×480 color-bar test pattern
-(genlock bypassed) and also pulses Coin 1.
+25K: S1 = reset, S2 = color-bar test pattern + Coin 1.
+60K: key AA13 = reset, key AB13 = Coin 1. UART beacon on U15 (→ USB-C
+serial, 115200): `FB c<calib> r<ddr_rst> x<clk_x1 cnt> q<27M cnt> d<cap_delay>`
+every ~0.5 s — frozen counters identify a dead clock domain with the case
+closed. Select+D-pad Right/Left tunes the capture delay live (D-pad is
+masked from the game while Select is held).
 
 ### Analog video (60K): PmodVGA on J10
 `vga_r/g/b[3:0]` (3:3:3 core color MSB-replicated to 4:4:4) + `vga_hs/vs`,
