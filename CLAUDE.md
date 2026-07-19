@@ -176,6 +176,10 @@ there; the IDE JSON equivalents are the CPU/MSPI/SSPI/etc. booleans).
 
 ## Docs map
 
+- `TODO.md` — **open issues and known gaps, consolidated**. Check (and
+  update) this before starting anything; per-doc "open items" sections feed
+  into it.
+
 - `handoff_v3_video_and_domino.md` — **most current**: video pipeline
   deep-dive, Domino POC, ROM-fit table for all MCR games, paths forward.
 - `handoff_v2_design.md` — SDRAM/V2 plan, shield electrical spec, MCR

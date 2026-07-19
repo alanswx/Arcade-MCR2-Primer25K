@@ -166,6 +166,8 @@ and the USB pad, so PMOD desk buttons retire.
 
 ## 6. Open items
 
+(Also tracked in the repo-root `TODO.md`, alongside the gateware gaps.)
+
 1. **5 V delivery route** — shield buck → console. Preferred: into the
    dock's USB-C power input (goes through the dock's OR-ing/OVP, sheet 3).
    J10 pin 11 exposes a +5 V rail, but whether back-feeding it powers the
