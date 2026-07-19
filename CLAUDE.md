@@ -205,11 +205,19 @@ there; the IDE JSON equivalents are the CPU/MSPI/SSPI/etc. booleans).
   |---|---|---|
   | `-top_module` | `TopModule` | synthesis picks `T80pa`; PnR error PA2024 |
   | `-verilog_std sysv2017` | `Verilog_Standard` = **`"Vlg_Std_Sysv2017"`** (exact token; an invalid value silently falls back to Verilog-2001) | `.sv` parsed as Verilog-2001: "single value range not allowed" (usb_hid_host.v:42), or "Instantiating unknown module 'uart_beacon'" because its ANSI port initializer won't parse |
-  | `-place_option 2` | `Place_Option` = `"2"` | different placement than the gbatang-derived DDR3 reference |
+  | `-place_option 2` | `Place_Option` = `"2"` | **CONFIRMED on hardware: `"0"` (the IDE default) yields a bitstream that builds clean and meets timing but whose DDR3 never trains → HDMI stays black.** Always 2 for this design. |
   | `-use_cpu_as_gpio` etc. | `CPU`,`MSPI`,`SSPI`,`READY`,`DONE`,`I2C` = true | "location is a dedicated pin (CPU)" on J10/`vga_*` pins (GUI: Place & Route → Dual-Purpose Pin) |
   Never set `JTAG` true — that removes the programming interface.
   **The headless `build.tcl` flow is immune to all of this** and is the
   recommended path on any machine (`gw_sh build.tcl` from the board dir).
+
+  Also: **`gw_sh` rewrites this JSON after a build and does NOT persist
+  `place_option` / `rw_check_on_ram` / `multi_boot`** — it writes their
+  defaults back regardless of what build.tcl passed. So the file is not a
+  record of how a CLI build was made (build.tcl is), it churns in `git
+  status` after every build, and its values matter *only* to IDE builds.
+  If you build in the IDE, verify **Place & Route → Place Option = 2**
+  yourself; that one silently costs you all HDMI output.
 - **Bank 9 is a 1.5 V bank on the 60K once DDR3 is used** (the DDR3 data
   group lives there). Anything on Bank 9 balls (user keys AA13/AB13, Y12,
   Y13, Y14, W11…) must be `IO_TYPE=LVCMOS15 BANK_VCCIO=1.5` — LVCMOS33
