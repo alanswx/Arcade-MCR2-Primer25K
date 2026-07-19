@@ -204,7 +204,8 @@ there; the IDE JSON equivalents are the CPU/MSPI/SSPI/etc. booleans).
   | build.tcl | JSON key | symptom if wrong |
   |---|---|---|
   | `-top_module` | `TopModule` | synthesis picks `T80pa`; PnR error PA2024 |
-  | `-verilog_std sysv2017` | `Verilog_Standard` | `.sv` parsed as Verilog-2001: "single value range not allowed" (usb_hid_host.v:42) |
+  | `-verilog_std sysv2017` | `Verilog_Standard` = **`"Vlg_Std_Sysv2017"`** (exact token; an invalid value silently falls back to Verilog-2001) | `.sv` parsed as Verilog-2001: "single value range not allowed" (usb_hid_host.v:42), or "Instantiating unknown module 'uart_beacon'" because its ANSI port initializer won't parse |
+  | `-place_option 2` | `Place_Option` = `"2"` | different placement than the gbatang-derived DDR3 reference |
   | `-use_cpu_as_gpio` etc. | `CPU`,`MSPI`,`SSPI`,`READY`,`DONE`,`I2C` = true | "location is a dedicated pin (CPU)" on J10/`vga_*` pins (GUI: Place & Route → Dual-Purpose Pin) |
   Never set `JTAG` true — that removes the programming interface.
   **The headless `build.tcl` flow is immune to all of this** and is the
