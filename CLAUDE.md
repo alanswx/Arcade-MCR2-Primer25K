@@ -176,6 +176,9 @@ there; the IDE JSON equivalents are the CPU/MSPI/SSPI/etc. booleans).
 
 ## Docs map
 
+- `docs/bench_wiring.md` — **what the current bitstream drives on J10**
+  (VGA, straps, debug pins, audio) for temporary bench hookups. Wire from
+  this, not from the shield spec's §4b cabinet plan.
 - `TODO.md` — **open issues and known gaps, consolidated**. Check (and
   update) this before starting anything; per-doc "open items" sections feed
   into it.
