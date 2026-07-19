@@ -33,16 +33,39 @@ it touches four separate things, and each game does it differently:
 Also needed for real two-player use: a **second USB pad** on port 2
 (usb2_dp M15 / usb2_dn M16 — pins verified, unused).
 
-**Pin impact (checked 2026-07):** the cocktail *DIP* costs nothing — SW2-3
-is already allocated and the 74HC165 chain makes any count up to 16 switches
-cost the same 3 pins. Cocktail P2 controls for Tron/Domino arrive on SSIO
-IP2 = J5 1-8, and §4b already pins all 11 J5 lines. **The one gap is IP4 /
-J6, which is not pinned at all** — see below.
+### How the cabinet setting actually reaches the core (two layers)
 
-**`input_3` is not purely DIP switches.** Tron puts the cocktail fire button
-on IP3 bit 7 (`PORT_BIT(0x80, ..., IPT_BUTTON1) PORT_COCKTAIL`), so for some
-games that port mixes DIP bits with a live input. The current hardcoded
-`input_3` constants can't stay constants once cocktail is real.
+`input_3` **is** the original board's DIP bank (the switches at B3), read by
+the SSIO as input port 3 — an internal core signal, not a pin. Our shield
+replaces that board, so the FPGA has to supply those bits:
+
+    SW2-3 (switch on the shield)
+      -> 74HC165 chain -> 3 FPGA pins     (switch reaches the FPGA)
+      -> per-game bit placement
+      -> input_3 bit N -> core SSIO       (FPGA reaches the core)
+
+So the cocktail switch both runs through the 165 *and* lands in `input_3`;
+they are different layers. Neither costs additional pins.
+
+**The bit position is different per game** (verified against MAME):
+
+| Game | Cabinet bit in IP3 |
+|---|---|
+| Tron, Satan's Hollow | bit 1 (0x02) |
+| Domino Man, Wacko, Kozmik Kroozr | bit 6 (0x40) |
+| Two Tigers (conversion set) | none — IP3 unused entirely |
+
+**`input_3` is not purely DIP switches.** Tron puts the *cocktail player's
+fire button* on IP3 bit 7 (`PORT_BIT(0x80, ..., IPT_BUTTON1) PORT_COCKTAIL`),
+so that port mixes config switches with a live cabinet input. Open question:
+the master pinout matrix lists Tron as having **no J5**, so where a cocktail
+Tron's P2 fire button arrives on the harness is undocumented — needs a
+cocktail cabinet manual or real hardware. (J5-19 "P2 Button 1" is pinned and
+is the obvious candidate, but that is a guess.)
+
+**Other pin impact:** cocktail P2 controls for Tron/Domino arrive on SSIO
+IP2 = J5 1-8, and §4b already pins all 11 J5 lines. **The one real gap is
+IP4 / J6, which is not pinned at all** — see the Shield PCB section.
 
 ---
 

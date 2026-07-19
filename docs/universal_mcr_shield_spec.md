@@ -214,6 +214,14 @@ boards were configured the same way.
 SW2-2 supersedes the `mode15_n` bench strap; SW2-3 feeds the per-game
 cocktail DIP bit (e.g. Domino IP3 bit 6 — see the game input matrix).
 
+**How SW2-3 reaches the core:** `input_3`/IP3 *is* the original board's B3
+DIP bank as read by the SSIO — an internal core signal. The switch travels
+SW2-3 -> 74HC165 -> FPGA -> the game's cabinet bit in `input_3` (bit 1 for
+Tron/Satan's Hollow, bit 6 for Domino/Wacko/Kroozr; Two Tigers has none).
+Note IP3 is not purely DIPs: Tron carries the cocktail player's fire button
+on its bit 7, so that bit must come from a cabinet input line, not a config
+switch - and where it lands on the harness is undocumented (see TODO.md).
+
 **Cocktail pin impact:** none for the switch itself (the 74HC165 chain is a
 fixed 3 pins for up to 16 switches), and cocktail player-2 controls for
 Tron/Domino arrive on SSIO IP2 = J5 1-8, already allocated in §4b. The
