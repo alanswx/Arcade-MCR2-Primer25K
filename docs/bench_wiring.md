@@ -82,11 +82,11 @@ Jumper recipe (J10 → Pmod):
 | 12 | J1 pin 5 and J2 pin 5 (GND) |
 | 3V3 from a PMOD socket | J1 pin 6 and J2 pin 6 (VCC) |
 
-**Plugging the Pmod straight into the two PMOD sockets** also works in
-principle, but Sipeed's socket pin order is not Digilent's, so the mapping
-is resolved by two straps — try the four combinations, exactly one gives a
-picture: J10-39 and J10-40 each open or jumpered to GND (pin 12). Untested
-on hardware.
+**Plugging the Pmod straight into the two PMOD sockets is not currently
+supported.** Sipeed's socket pin order is not Digilent's, and the two straps
+that used to resolve that mapping (J10-39/40) were repurposed for the 15 kHz
+sync format, which turned out to matter more. The jumper recipe above works
+regardless of socket orientation.
 
 ## 15 kHz vs 31 kHz
 
