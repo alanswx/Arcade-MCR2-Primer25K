@@ -99,6 +99,22 @@ IP4 / J6, which is not pinned at all** — see the Shield PCB section.
   passive — its SN74ALVC245 buffers need **3.3 V on VCC** (never 5 V).
   The J10 jumper route (or a DE-15 breakout + 9 resistors) avoids the
   ambiguity entirely.
+- **Green channel lost at 15 kHz on a modern 15 kHz-capable LCD** (31 kHz on
+  the same wiring is correct). Grey renders magenta, olive purple, tan pink;
+  red and blue are untouched — i.e. green removed. Investigated 2026-07:
+  the FPGA drives R/G/B through identical logic and cannot lose one channel,
+  and **all four 15 kHz sync formats behave the same** (csync+VS, pure RGBS,
+  separate H/V, separate H with VS off), so the sync format is not the
+  trigger. Conclusion: the display reinterprets the input when it detects
+  15 kHz — most likely sync-on-green detection clamping that input.
+  **Probably not worth fixing**: a real arcade monitor is a dumb analogue
+  amplifier with no format detection, so the target hardware should be
+  unaffected, and both combinations that matter (31 kHz VGA on the bench,
+  HDMI for retrofit-LCD cabinets) work. Next test if revisited: feed the
+  same monitor 15 kHz from MiSTer as a known-good reference — if that is
+  correct, our signal differs in some findable way; if it is also wrong,
+  it is a monitor setting. **Verify against a real arcade monitor before
+  spending more time here.**
 - **New games' controls are derived, not played.** Trackball/analogue-stick
   sensitivity on a d-pad is guesswork — Kroozr's stick ramp rate especially.
   Tron's aim direction may need reversing (MAME marks the dial PORT_REVERSE).
