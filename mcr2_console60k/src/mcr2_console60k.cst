@@ -23,15 +23,27 @@ IO_PORT "s1" IO_TYPE=LVCMOS15 PULL_MODE=UP DRIVE=OFF BANK_VCCIO=1.5;
 IO_LOC "reset2" AB13;
 IO_PORT "reset2" IO_TYPE=LVCMOS15 PULL_MODE=UP DRIVE=OFF BANK_VCCIO=1.5;
 
-// HDMI TMDS differential pairs (ELVDS_OBUF; "p-ball,n-ball" pair syntax)
-IO_LOC "tmds_clk_p" G15,G16;
-IO_PORT "tmds_clk_p" IO_TYPE=LVCMOS33D PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
-IO_LOC "tmds_d_p[0]" J14,H14;
-IO_PORT "tmds_d_p[0]" IO_TYPE=LVCMOS33D PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
-IO_LOC "tmds_d_p[1]" J15,H15;
-IO_PORT "tmds_d_p[1]" IO_TYPE=LVCMOS33D PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
-IO_LOC "tmds_d_p[2]" K17,J17;
-IO_PORT "tmds_d_p[2]" IO_TYPE=LVCMOS33D PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+// HDMI TMDS. Constrained exactly as nand2mario's nestang/gbatang do it for
+// this board - each half of every pair given its own IO_LOC, no DRIVE and no
+// BANK_VCCIO override. The paired "G15,G16" syntax placed the pins on the
+// same balls, but matching a known-working design removes the last variable.
+IO_LOC "tmds_clk_p" G15;
+IO_PORT "tmds_clk_p" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_clk_n" G16;
+IO_PORT "tmds_clk_n" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_p[0]" J14;
+IO_PORT "tmds_d_p[0]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_n[0]" H14;
+IO_PORT "tmds_d_n[0]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_p[1]" J15;
+IO_PORT "tmds_d_p[1]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_n[1]" H15;
+IO_PORT "tmds_d_n[1]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_p[2]" K17;
+IO_PORT "tmds_d_p[2]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_n[2]" J17;
+IO_PORT "tmds_d_n[2]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+
 // HDMI enable on the dock, driven high (Sipeed's NEO_DOCK example drives
 // this; leaving it as a weak pull-up input is not necessarily enough).
 IO_LOC "hpd_en" K13;
