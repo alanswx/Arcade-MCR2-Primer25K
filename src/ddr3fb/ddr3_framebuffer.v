@@ -23,12 +23,21 @@
 //   prefetch  0  4  8 12 16 20 24 28 32 36 40        WIDTH-4
 // - Writes are handled in 4 pixel chunks too. Whenever we have 4 pixels
 //   accumulated, we write them to DDR3. Reading takes precedence over writing.
+// LOCAL MODIFICATIONS (not upstream gbatang):
+//   * DVI_MODE parameter - 1 strips HDMI audio/infoframe packets and sends
+//     plain DVI, for displays that refuse our packet layer.
+//   * hclk_dbg output - the HDMI pixel clock (pll_hdmi clkout1). This is the
+//     clock that actually drives the TMDS pins; clk_out/clk_x1 comes from the
+//     DDR3 controller instead, so watching clk_x1 does NOT prove the HDMI
+//     clock chain is alive.
 module ddr3_framebuffer #(
     parameter WIDTH = 640,           // multiples of 4
     parameter HEIGHT = 480, 
     parameter COLOR_BITS = 18,       // RGB666
-    parameter PREFETCH_DELAY = 40    // buffer is 16 pixels, so 40 accommodates any delay between 24-40 cycles
+    parameter PREFETCH_DELAY = 40,   // buffer is 16 pixels, so 40 accommodates any delay between 24-40 cycles
+    parameter DVI_MODE = 0           // 1 = plain DVI (no audio / infoframes)
 )(
+    output              hclk_dbg,    // HDMI pixel clock, for a liveness check
     input               clk_27,      // 27Mhz input clock
     input               clk_g,       // 50Mhz crystal
     input               pll_lock_27,
@@ -77,6 +86,7 @@ module ddr3_framebuffer #(
 /////////////////////////////////////////////////////////////////////
 // Clocks
 wire hclk, hclk5;
+assign hclk_dbg = hclk;
 wire memory_clk;
 wire clk_x1 /* synthesis syn_keep=1 */;
 assign clk_out = clk_x1;
@@ -251,7 +261,7 @@ localparam AUDIO_BIT_WIDTH = 16;
 localparam AUDIO_OUT_RATE = 32000;
 
 hdmi #( .VIDEO_ID_CODE(VIDEOID), 
-        .DVI_OUTPUT(0), 
+        .DVI_OUTPUT(DVI_MODE), 
         .VIDEO_REFRESH_RATE(VIDEO_REFRESH),
         .IT_CONTENT(1),
         .AUDIO_RATE(AUDIO_OUT_RATE), 

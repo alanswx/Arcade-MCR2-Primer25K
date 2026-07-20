@@ -644,6 +644,9 @@ wire fb_vsync = vblank & ~fb_vbl_r;
 //   debug_o[2] J10-23: ~0.8Hz heartbeat from the 27MHz reference
 //   debug_o[3] J10-24: ddr_rst - should sit LOW once the DDR PLL settles
 wire fb_clk_x1, fb_ddr_rst, fb_calib;
+wire fb_hclk;             // HDMI pixel clock - the one that feeds the TMDS pins
+reg [24:0] hb_h = 0;
+always @(posedge fb_hclk) hb_h <= hb_h + 1'b1;
 reg [25:0] hb_x1 = 0;
 reg [24:0] hb_27 = 0;
 always @(posedge fb_clk_x1) hb_x1 <= hb_x1 + 1'b1;
@@ -660,7 +663,7 @@ uart_beacon #(.CLK_HZ(40_000_000), .BAUD(115200)) beacon (
     .cnt_x(hb_x1[25:10]),
     .cnt_q(hb_27[24:17]),
     .aux({3'b000, cap_delay}),
-    .aux2({4'b0000, sd_ready, sd_err, ldr_done, ldr_error}),
+    .aux2({hb_h[24:21], sd_ready, sd_err, ldr_done, ldr_error}),
     .txd(uart_tx)
 );
 
@@ -668,8 +671,10 @@ ddr3_framebuffer #(
     .WIDTH(512),
     .HEIGHT(480),
     .COLOR_BITS(12),
-    .PREFETCH_DELAY(44)
+    .PREFETCH_DELAY(44),
+    .DVI_MODE(1)          // DIAGNOSTIC: plain DVI, no audio/infoframe packets
 ) fb_inst (
+    .hclk_dbg(fb_hclk),
     .clk_27(clk27),
     .pll_lock_27(1'b1),
     .clk_g(clk50_pll),        // PLL-buffered 50 MHz (global clock net)
