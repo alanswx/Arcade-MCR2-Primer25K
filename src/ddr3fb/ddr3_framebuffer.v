@@ -431,10 +431,18 @@ asyncfifo #(.BUFFER_ADDR_WIDTH(6), .DATA_WIDTH(24)) pixel_fifo (
 );
 
 wire hdmi_active = (cx < 11'd1280) && (cy < 10'd720);
+// DIAGNOSTIC COLOURS - each failure mode paints differently:
+//   white 2px border   = hclk/hdmi/rgb path alive (drawn without the FIFO)
+//   magenta interior   = pixel FIFO underrunning (producer side broken)
+//   grey pillars+black = FIFO fine but pixels[] dark (prefetch/DDR reads)
+//   game picture       = everything works
+wire hdmi_border = hdmi_active &&
+    (cx < 11'd2 || cx >= 11'd1278 || cy < 10'd2 || cy >= 10'd718);
 reg [23:0] rgb_out;
 always @(posedge hclk)
-    rgb_out <= !hdmi_active ? 24'h000000 :
-               pfifo_can_read ? pfifo_data : 24'h202020;
+    rgb_out <= !hdmi_active  ? 24'h000000 :
+               hdmi_border   ? 24'hFFFFFF :
+               pfifo_can_read ? pfifo_data : 24'hFF00FF;
 
 // upscaling and output RGB
 reg [$clog2(WIDTH)-1:0] ox_r;
