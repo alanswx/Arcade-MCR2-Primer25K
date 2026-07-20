@@ -37,7 +37,8 @@ module ddr3_framebuffer #(
     parameter PREFETCH_DELAY = 40,   // buffer is 16 pixels, so 40 accommodates any delay between 24-40 cycles
     parameter DVI_MODE = 0           // 1 = plain DVI (no audio / infoframes)
 )(
-    output              hclk_dbg,    // HDMI pixel clock, for a liveness check
+    output              hclk_dbg,    // HDMI pixel clock (pll_hdmi ODIV1)
+    output              hclk5_dbg,   // HDMI 5x serial clock (pll_hdmi ODIV0)
     input               clk_27,      // 27Mhz input clock
     input               clk_g,       // 50Mhz crystal
     input               pll_lock_27,
@@ -87,6 +88,7 @@ module ddr3_framebuffer #(
 // Clocks
 wire hclk, hclk5;
 assign hclk_dbg = hclk;
+assign hclk5_dbg = hclk5;
 wire memory_clk;
 wire clk_x1 /* synthesis syn_keep=1 */;
 assign clk_out = clk_x1;
