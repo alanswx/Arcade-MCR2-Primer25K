@@ -194,42 +194,36 @@ and the USB pad, so PMOD desk buttons retire.
 ## 7. Configuration & game selection (DIP switches)
 
 Two 8-position DIP banks, matching the SW1/SW2 placement already in
-`pcb_design.md` — and matching what MCR operators expect, since the original
-boards were configured the same way.
+`pcb_design.md`. **Revised 2026-07-20:** game *selection* moves to the OSD
+(see 7c/7d); the physical DIPs are for what operators have always used DIPs
+for — the game's own option switches.
 
 ### 7a. Switch map
 
 | Bank | Positions | Function |
 |---|---|---|
-| SW1 | 1–2 | **Family** → selects which bitstream multiboot loads: MCR-1 / MCR-2 / MCR-3 / (reserved) |
-| SW1 | 3–5 | **Game within family** (8 slots; no family has more) |
-| SW1 | 6–8 | Reserved (ROM revision, region, future families) |
-| SW2 | 1 | **Menu enable** (see 7c) |
+| SW1 | 1–8 | **GAME DIPS — wired verbatim as the core's IP3 byte** (the original board's B3 bank). Meanings are per game, exactly as the 1982 operator manuals document them: coinage, music, difficulty, cabinet type, coin meters… Ship a printed reference card per game, as operators always had. |
+| SW2 | 1 | Menu enable (see 7c) |
 | SW2 | 2 | Video: 15 kHz cabinet CRT / 31 kHz |
-| SW2 | 3 | Cabinet: upright / cocktail (costs no extra pins — see note) |
-| SW2 | 4 | Free play |
+| SW2 | 3 | 15 kHz sync format: separate H/V (default, = MCR cabinet) / composite |
+| SW2 | 4 | Free play (where the game's own DIPs lack it) |
 | SW2 | 5 | Service / test |
 | SW2 | 6–8 | Reserved |
 
-SW2-2 supersedes the `mode15_n` bench strap; SW2-3 feeds the per-game
-cocktail DIP bit (e.g. Domino IP3 bit 6 — see the game input matrix).
+SW1 = IP3 removes the per-game hardcoded `input_3` constants from the top —
+the operator sets the real switches. Two caveats survive from the analysis
+below: the cocktail bit lives at a different IP3 position per game (that is
+now simply the operator's problem to set per the game's card, as it was in
+1982), and **IP3 is not purely DIPs for every game** — Tron's bit 7 is the
+cocktail player's fire button, a live input that must be OR'd from the
+harness, not taken from the switch (the FPGA masks SW1 bit 8 for Tron).
 
-**How SW2-3 reaches the core:** `input_3`/IP3 *is* the original board's B3
-DIP bank as read by the SSIO — an internal core signal. The switch travels
-SW2-3 -> 74HC165 -> FPGA -> the game's cabinet bit in `input_3` (bit 1 for
-Tron/Satan's Hollow, bit 6 for Domino/Wacko/Kroozr; Two Tigers has none).
-Note IP3 is not purely DIPs: Tron carries the cocktail player's fire button
-on its bit 7, so that bit must come from a cabinet input line, not a config
-switch - and where it lands on the harness is undocumented (see TODO.md).
-
-**Cocktail pin impact:** none for the switch itself (the 74HC165 chain is a
-fixed 3 pins for up to 16 switches), and cocktail player-2 controls for
-Tron/Domino arrive on SSIO IP2 = J5 1-8, already allocated in §4b. The
-outstanding item is **IP4 / J6**, which §4b does not pin: it carries Wacko's
-cocktail joystick, Two Tigers' P2 dial, and Kroozr's analogue-stick Y axis
-(the last needed even upright). Allocate from the 8 reserved pins once J6's
-cabinet wiring is established. Note also that IP3 is not purely DIPs — Tron
-puts the cocktail fire button on its bit 7.
+**Cocktail pin impact:** unchanged — cocktail P2 controls for Tron/Domino
+arrive on SSIO IP2 = J5 1-8, already allocated in §4b. The outstanding item
+is **IP4 / J6**, which §4b does not pin: it carries Wacko's cocktail
+joystick, Two Tigers' P2 dial, and Kroozr's analogue-stick Y axis (the last
+needed even upright). Allocate from the 8 reserved pins once J6's cabinet
+wiring is established.
 
 ### 7b. Reading them (74HC165)
 
@@ -246,20 +240,36 @@ Switch to GND with pull-ups to +3V3; a closed switch reads 0. Sampled once
 after reset — **silkscreen "power-cycle after changing DIPs"** next to the
 banks. No debounce needed.
 
-### 7c. Menu semantics
+### 7c. OSD (game selection & system settings)
 
-- **Menu off (cabinet default):** boot straight into the DIP-selected game.
-  No OSD exists at runtime; nothing a customer can reach.
-- **Menu on:** the DIPs still choose the boot default, but the OSD can
-  override at runtime (bench/home/multicade use).
+Game selection is on-screen, opened with the **cabinet's existing service
+button** (present in every MCR harness) or the bench board key. Selection
+and system prefs persist to a reserved SD sector; the chosen game reloads
+via the existing rom_loader path, no reflash.
+
+**The OSD must be visible on BOTH video outputs.** It composites into the
+core's native RGB stream *before* the analog/HDMI split (clk_sys domain, on
+the native raster), so the cabinet CRT — the only display in a cabinet —
+shows it identically to HDMI. Consequences the implementation must honour:
+- **per-game rotation**: vertical games (Tron, Satan's Hollow, Kick…) run
+  on physically rotated monitors, so OSD text must render ROT90 for them;
+- works on the **15 kHz raster** (240-line fields), not just 31 kHz;
+- native resolution and the game palette's 3:3:3 colour — which is
+  authentic-looking, not a limitation.
+
+Menu semantics:
+- **Menu off (SW2-1, cabinet default):** customers cannot reach the OSD;
+  the service button still opens it (operator path, as MCR test switches
+  always worked).
+- **Menu on:** OSD reachable from the pad (bench/home use).
 
 ### 7d. Multiboot layout
 
 Per-core bitstream payload is **2.5 MB** (`impl/pnr/*.bin`; the 20 MB `.fs`
 is ASCII, not the flash footprint), so all three family cores fit in <8 MB.
-A small selector image boots first, samples the DIPs, and reconfigures to
-the chosen image's flash address. `-multi_boot 1` is already set in
-`build.tcl`.
+A small selector image boots first, reads the prefs sector from SD (last
+selected family/game), and reconfigures to that image's flash address.
+`-multi_boot 1` is already set in `build.tcl`. No switches involved.
 
 ### 7e. Fallback behaviour (required for shipping)
 
