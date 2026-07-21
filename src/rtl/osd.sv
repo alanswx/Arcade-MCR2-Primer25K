@@ -68,18 +68,63 @@ reg [2:0] cursor = GAME_DEFAULT;
 assign osd_active = (state != S_CLOSED);
 
 // ---------------------------------------------------------------------------
-// Menu FSM
+// Button events: sampled once per FRAME, not per clock. The USB HID host
+// updates its button outputs byte-by-byte while each report streams in, so
+// a held button shows transient edges at 40 MHz - the games never notice
+// (they poll levels at frame rate) but a per-clock edge detector counts
+// them and the cursor skips. One settled sample per vblank debounces all of
+// that, and gives natural units for hold-to-repeat: first repeat after
+// ~0.5 s (30 frames), then ~8/s (every 8 frames).
 // ---------------------------------------------------------------------------
-reg up_r = 0, dn_r = 0, a_r = 0, b_r = 0, combo_r = 0;
+reg vbl_q = 1'b1;
+always @(posedge clk) vbl_q <= vblank;
+wire frame_tick = vblank & ~vbl_q;
+
 wire combo = btn_sel & btn_sta;
 
+reg p_up = 0, p_dn = 0, p_a = 0, p_b = 0, p_combo = 0;
+reg [5:0] rpt_cnt = 0;
+reg ev_up = 0, ev_dn = 0, ev_a = 0, ev_b = 0, ev_combo = 0;   // 1-clk pulses
+
+always @(posedge clk) begin
+    ev_up    <= 1'b0;
+    ev_dn    <= 1'b0;
+    ev_a     <= 1'b0;
+    ev_b     <= 1'b0;
+    ev_combo <= 1'b0;
+    if (frame_tick) begin
+        p_up    <= btn_up;
+        p_dn    <= btn_down;
+        p_a     <= btn_a;
+        p_b     <= btn_b;
+        p_combo <= combo;
+
+        ev_a     <= btn_a & ~p_a;
+        ev_b     <= btn_b & ~p_b;
+        ev_combo <= combo & ~p_combo;
+
+        // Up/Down: event on press, then auto-repeat while held
+        if (btn_up ^ btn_down) begin
+            if ((btn_up & ~p_up) || (btn_down & ~p_dn)) begin
+                ev_up   <= btn_up;
+                ev_dn   <= btn_down;
+                rpt_cnt <= 6'd0;
+            end else if (rpt_cnt >= 6'd30) begin
+                ev_up   <= btn_up;
+                ev_dn   <= btn_down;
+                rpt_cnt <= 6'd22;            // 30-22 = repeat every 8 frames
+            end else
+                rpt_cnt <= rpt_cnt + 6'd1;
+        end else
+            rpt_cnt <= 6'd0;
+    end
+end
+
+// ---------------------------------------------------------------------------
+// Menu FSM
+// ---------------------------------------------------------------------------
 always @(posedge clk) begin
     loader_restart <= 1'b0;
-    up_r    <= btn_up;
-    dn_r    <= btn_down;
-    a_r     <= btn_a;
-    b_r     <= btn_b;
-    combo_r <= combo;
 
     if (rst) begin
         state     <= S_CLOSED;
@@ -90,19 +135,19 @@ always @(posedge clk) begin
         case (state)
 
         S_CLOSED:
-            if (combo & ~combo_r) begin
+            if (ev_combo) begin
                 state  <= S_OPEN;
                 cursor <= game_id;
             end
 
         S_OPEN: begin
-            if ((combo & ~combo_r) || (btn_b & ~b_r))
+            if (ev_combo || ev_b)
                 state <= S_CLOSED;
-            else if (btn_up & ~up_r)
+            else if (ev_up)
                 cursor <= (cursor == 3'd0) ? 3'd5 : cursor - 3'd1;
-            else if (btn_down & ~dn_r)
+            else if (ev_dn)
                 cursor <= (cursor == 3'd5) ? 3'd0 : cursor + 3'd1;
-            else if (btn_a & ~a_r) begin
+            else if (ev_a) begin
                 load_slot      <= {1'b0, cursor};
                 loader_restart <= 1'b1;
                 state          <= S_LOAD;
@@ -124,7 +169,7 @@ always @(posedge clk) begin
                 state <= S_ERR;
 
         S_ERR:
-            if ((btn_a & ~a_r) || (btn_b & ~b_r) || (combo & ~combo_r))
+            if (ev_a || ev_b || ev_combo)
                 state <= S_OPEN;
 
         default:
