@@ -24,6 +24,7 @@
         <File path="../src/rtl/sd_spi_phy.sv" type="file.verilog" enable="1"/>
         <File path="../src/rtl/sd_reader.sv" type="file.verilog" enable="1"/>
         <File path="../src/rtl/rom_loader.sv" type="file.verilog" enable="1"/>
+        <File path="../src/rtl/osd.sv" type="file.verilog" enable="1"/>
 
         <!-- DDR3 framebuffer + 720p HDMI w/ audio (nand2mario/gbatang) -->
         <File path="../src/ddr3fb/ddr3_framebuffer.v" type="file.verilog" enable="1"/>

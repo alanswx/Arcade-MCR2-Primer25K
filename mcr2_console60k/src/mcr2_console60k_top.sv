@@ -153,10 +153,30 @@ wire core_reset_raw = (reset_cnt != 0);       // resets the SD loader itself
 reg core_reset = 1'b1;
 always @(posedge clk_sys) core_reset <= core_reset_raw || !rom_ready;
 
-// Which slot of the SD pack to load. Fixed for now; this is what the
-// SW1-3..5 game-select DIPs will drive once the 74HC165 chain exists
-// (docs/universal_mcr_shield_spec.md section 7).
-wire [3:0] game_slot = 4'd0;
+// Game selection. game_id picks the input/DIP mapping at RUNTIME (all six
+// maps are compiled in); game_slot tells the SD loader which pack slot to
+// (re)load. Both are owned by the OSD menu (Select+Start on the pad).
+// The power-on default is whatever game merge_roms.py baked into BSRAM, so
+// map and ROMs always match at boot - with or without a card.
+// Slot order = tools/merge_roms.py GAME_SPECS order (= the pack's order).
+`ifdef GAME_SHOLLOW
+localparam [2:0] GAME_DEFAULT = 3'd0;
+`elsif GAME_TRON
+localparam [2:0] GAME_DEFAULT = 3'd1;
+`elsif GAME_WACKO
+localparam [2:0] GAME_DEFAULT = 3'd2;
+`elsif GAME_KROOZR
+localparam [2:0] GAME_DEFAULT = 3'd3;
+`elsif GAME_TWOTIGER
+localparam [2:0] GAME_DEFAULT = 3'd4;
+`else
+localparam [2:0] GAME_DEFAULT = 3'd5;   // Domino Man
+`endif
+
+wire [2:0] game_id;      // game the core is running (from the OSD)
+wire [3:0] game_slot;    // SD pack slot the loader (re)loads
+wire       osd_restart;  // OSD pulse: restart the loader with game_slot
+wire       osd_active;   // menu open -> game inputs masked below
 
 always @(posedge clk_sys) begin
     if (key_s1 || !pll_locked) begin
@@ -193,7 +213,7 @@ sd_reader #(.CLK_HZ(40_000_000)) sd (
 );
 
 rom_loader #(.PACK_BASE(32'd2048), .SLOT_SECTORS(256)) loader (
-    .clk(clk_sys), .rst(core_reset_raw),
+    .clk(clk_sys), .rst(core_reset_raw | osd_restart),
     .slot(game_slot),
     .sd_ready(sd_ready), .sd_err(sd_err),
     .sd_rd_start(sd_rd_start), .sd_sector(sd_sector),
@@ -293,17 +313,33 @@ wire [2:0] r, g, b;
 wire       hblank, vblank;
 wire       hs, vs, cs;
 
-// --- Core Controls & Switch Mapping (per game, verified vs MAME mcr.cpp) -----
-// All inputs come from the USB pad (PMOD sockets carry the PmodVGA):
-// common decode: dpad = joystick, A = Button 1, Start = Start1,
-// Select = Coin1. B/X/Y are game-specific. Board key 2 also pulses Coin 1.
-// D-pad is masked while Select is held (Select+dpad = capture-delay tuning).
-wire m_left    = u_left  & ~u_sel;
-wire m_right   = u_right & ~u_sel;
-wire m_up      = u_up    & ~u_sel;
-wire m_down    = u_down  & ~u_sel;
-wire m_start1  = u_sta;
-wire m_coin1   = u_sel | key_s2;
+// --- Core Controls & Switch Mapping (runtime mux, verified vs MAME mcr.cpp) --
+// All six games are compiled in and selected at RUNTIME by game_id (OSD
+// menu); game_config.vh only decides which game's ROMs are BAKED into
+// BSRAM, i.e. what boots with no SD card.
+//
+// Common pad decode: dpad = joystick, Start = Start1, Select = Coin1 (board
+// key 2 also pulses Coin 1). A = Button 1; B/X/Y are game-specific. While
+// the OSD is open every game input is masked so navigating the menu doesn't
+// play (or coin up) the game underneath. D-pad is additionally masked while
+// Select is held (Select+dpad = capture-delay tuning).
+localparam [2:0] GID_SHOLLOW  = 3'd0,
+                 GID_TRON     = 3'd1,
+                 GID_WACKO    = 3'd2,
+                 GID_KROOZR   = 3'd3,
+                 GID_TWOTIGER = 3'd4,
+                 GID_DOMINO   = 3'd5;
+
+wire m_left    = u_left  & ~u_sel & ~osd_active;
+wire m_right   = u_right & ~u_sel & ~osd_active;
+wire m_up      = u_up    & ~u_sel & ~osd_active;
+wire m_down    = u_down  & ~u_sel & ~osd_active;
+wire m_a       = u_btn_a & ~osd_active;
+wire m_b       = u_btn_b & ~osd_active;
+wire m_x       = u_btn_x & ~osd_active;
+wire m_y       = u_btn_y & ~osd_active;
+wire m_start1  = u_sta   & ~osd_active;
+wire m_coin1   = (u_sel & ~osd_active) | key_s2;
 wire m_service = 1'b0;
 
 reg [7:0] input_0;
@@ -312,85 +348,50 @@ reg [7:0] input_2;
 reg [7:0] input_3;
 reg [7:0] input_4;
 
-`ifdef GAME_TRON
-// TRON: IP0 = standard MCR2 (trigger on bit 4), IP1 = 8-bit aim dial
-// (absolute spinner value, NOT active-low switches), IP2 = P1 8-way
-// joystick, IP3 DIPs = 0x80 (upright, coin meters 2, continues allowed,
-// cocktail-trigger input idle high), IP4 = cocktail dial (unused).
-// Pad: dpad = move, A/B = trigger, X/Y = rotate aim. If the aim rotates
-// opposite to expectation (MAME marks this dial PORT_REVERSE), swap the
-// minus/plus hookup below.
-wire m_fire   = u_btn_a | u_btn_b;
-wire m_start2 = 1'b0;   // X/Y are the spinner on this game
-wire m_coin2  = 1'b0;
+// Per-game analogue helpers - always instantiated (each is just a small
+// counter) and muxed into the inputs by game_id below.
 
-wire [7:0] spin_out;
-spinner #(.INC_NORMAL(20), .INC_FAST(40), .INC_SPINNER(20)) aim_dial (
-    .clk(clk_sys),
-    .reset(core_reset),
-    .minus(u_btn_x),
-    .plus(u_btn_y),
-    .fast(1'b0),
-    .strobe(vblank),   // steps once per frame (module edge-detects)
+// TRON aim dial: absolute 8-bit spinner, X/Y rotate. If aim turns the wrong
+// way (MAME marks it PORT_REVERSE), swap minus/plus here.
+wire [7:0] spin_tron;
+spinner #(.INC_NORMAL(20), .INC_FAST(40), .INC_SPINNER(20)) sp_tron (
+    .clk(clk_sys), .reset(core_reset),
+    .minus(m_x), .plus(m_y), .fast(1'b0), .strobe(vblank),
     .spin_in(9'd0),    // reserved: USB mouse as a true spinner
-    .spin_out(spin_out)
+    .spin_out(spin_tron)
 );
 
-always @(*) begin
-    input_0 = ~{ 1'b0, m_service, 1'b0, m_fire, m_start2, m_start1, m_coin2, m_coin1 };
-    input_1 = spin_out;
-    input_2 = ~{ 4'b0000, m_down, m_up, m_right, m_left };
-    input_3 = 8'h80;
-    input_4 = 8'h00;
-end
-
-`elsif GAME_WACKO
-// WACKO: trackball game. IP1 = trackball X, IP2 = trackball Y (both are
-// free-running 8-bit counters, exactly what spinner.sv produces), IP4 =
-// 4-way "left" joystick that aims. The SSIO input mux (output port 4 bit 0)
-// only swaps in the *cocktail* player's trackball, so upright play needs no
-// mux support. Pad: dpad = trackball, X/Y+A/B = aim stick.
-wire m_start2 = 1'b0;   // no spare buttons: A/B/X/Y are the aim joystick
-wire m_coin2  = 1'b0;
-
+// WACKO trackball: free-running X/Y counters driven by the d-pad
 wire [7:0] tb_x, tb_y;
-spinner #(.INC_NORMAL(12), .INC_FAST(24), .INC_SPINNER(12)) trackball_x (
+spinner #(.INC_NORMAL(12), .INC_FAST(24), .INC_SPINNER(12)) sp_tb_x (
     .clk(clk_sys), .reset(core_reset),
     .minus(m_left), .plus(m_right), .fast(1'b0), .strobe(vblank),
     .spin_in(9'd0), .spin_out(tb_x)
 );
-spinner #(.INC_NORMAL(12), .INC_FAST(24), .INC_SPINNER(12)) trackball_y (
+spinner #(.INC_NORMAL(12), .INC_FAST(24), .INC_SPINNER(12)) sp_tb_y (
     .clk(clk_sys), .reset(core_reset),
     .minus(m_up), .plus(m_down), .fast(1'b0), .strobe(vblank),
     .spin_in(9'd0), .spin_out(tb_y)
 );
 
-always @(*) begin
-    input_0 = ~{ 1'b0, m_service, 1'b0, 1'b0, m_start2, m_start1, m_coin2, m_coin1 };
-    input_1 = tb_x;
-    input_2 = tb_y;
-    input_3 = 8'hFF;
-    // IP4 aim joystick, 4-way active low: bit3 up, bit2 down, bit1 left, bit0 right
-    input_4 = ~{ 4'b0000, u_btn_a, u_btn_b, u_btn_x, u_btn_y };
-end
-
-`elsif GAME_KROOZR
-// KOZMIK KROOZR: IP1 packs the rotating-cockpit spinner oddly - the SSIO
-// custom read returns ((dial & 0x80) >> 1) | ((dial & 0x70) >> 4), i.e.
-// bit 6 = dial[7] and bits 2:0 = dial[6:4], both ACTIVE HIGH; bit 7 is
-// Button 2 (active low) and bits 5:3 are cockpit sensors. IP2/IP4 are an
-// analogue stick (0x30..0x98, centre 0x64) synthesised here from the d-pad.
-wire m_start2 = u_btn_x;
-wire m_coin2  = u_btn_y;
-
-wire [7:0] dial;
-spinner #(.INC_NORMAL(16), .INC_FAST(32), .INC_SPINNER(16)) cockpit_dial (
+// KOZMIK KROOZR cockpit dial (X/Y)
+wire [7:0] dial_kz;
+spinner #(.INC_NORMAL(16), .INC_FAST(32), .INC_SPINNER(16)) sp_kz (
     .clk(clk_sys), .reset(core_reset),
-    .minus(u_btn_x), .plus(u_btn_y), .fast(1'b0), .strobe(vblank),
-    .spin_in(9'd0), .spin_out(dial)
+    .minus(m_x), .plus(m_y), .fast(1'b0), .strobe(vblank),
+    .spin_in(9'd0), .spin_out(dial_kz)
 );
 
-// analogue stick: ramp toward the limit while held, recentre on release
+// TWO TIGERS player 1 dial (X/Y)
+wire [7:0] dial_tt;
+spinner #(.INC_NORMAL(20), .INC_FAST(40), .INC_SPINNER(20)) sp_tt (
+    .clk(clk_sys), .reset(core_reset),
+    .minus(m_x), .plus(m_y), .fast(1'b0), .strobe(vblank),
+    .spin_in(9'd0), .spin_out(dial_tt)
+);
+
+// KROOZR analogue stick (0x30..0x98, centre 0x64): ramp toward the limit
+// while the d-pad is held, recentre on release
 reg vbl_r = 1'b1;
 wire vbl_edge = vblank & ~vbl_r;
 always @(posedge clk_sys) vbl_r <= vblank;
@@ -409,68 +410,80 @@ always @(posedge clk_sys) begin
 end
 
 always @(*) begin
-    input_0 = ~{ 1'b0, m_service, 1'b0, u_btn_a, m_start2, m_start1, m_coin2, m_coin1 };
-    // bit 7 Button 2 (active low), bits 5:3 sensors (idle low), spinner bits high-active
-    input_1 = { ~u_btn_b, dial[7], 3'b000, dial[6:4] };
-    input_2 = stick_x;
-    input_3 = 8'hFF;
-    input_4 = stick_y;
+    case (game_id)
+
+    // SATAN'S HOLLOW: IP0 = standard (no button bit), IP1 = {..., fire,
+    // shield, right, left}. Pad: A = fire, B = shield, X = Start2, Y = Coin2.
+    GID_SHOLLOW: begin
+        input_0 = ~{ 2'b00, 1'b0, 1'b0, m_x, m_start1, m_y, m_coin1 };
+        input_1 = ~{ 4'b0000, m_a, m_b, m_right, m_left };
+        input_2 = 8'hFF;
+        input_3 = 8'hFF;
+        input_4 = 8'hFF;
+    end
+
+    // TRON: IP0 = standard MCR2 (trigger on bit 4), IP1 = 8-bit aim dial
+    // (absolute spinner value, NOT active-low switches), IP2 = P1 8-way
+    // joystick, IP3 DIPs = 0x80 (upright, coin meters 2, continues allowed,
+    // cocktail-trigger input idle high), IP4 = cocktail dial (unused).
+    // Pad: dpad = move, A/B = trigger, X/Y = rotate aim.
+    GID_TRON: begin
+        input_0 = ~{ 1'b0, m_service, 1'b0, m_a | m_b, 1'b0, m_start1, 1'b0, m_coin1 };
+        input_1 = spin_tron;
+        input_2 = ~{ 4'b0000, m_down, m_up, m_right, m_left };
+        input_3 = 8'h80;
+        input_4 = 8'h00;
+    end
+
+    // WACKO: IP1/IP2 = trackball X/Y, IP4 = 4-way aim joystick (active low:
+    // bit3 up, bit2 down, bit1 left, bit0 right). The SSIO input mux only
+    // swaps in the *cocktail* trackball, so upright play needs no mux.
+    // Pad: dpad = trackball, A/B/X/Y = aim stick.
+    GID_WACKO: begin
+        input_0 = ~{ 1'b0, m_service, 1'b0, 1'b0, 1'b0, m_start1, 1'b0, m_coin1 };
+        input_1 = tb_x;
+        input_2 = tb_y;
+        input_3 = 8'hFF;
+        input_4 = ~{ 4'b0000, m_a, m_b, m_x, m_y };
+    end
+
+    // KOZMIK KROOZR: IP1 packs the cockpit spinner oddly - the SSIO custom
+    // read returns ((dial & 0x80) >> 1) | ((dial & 0x70) >> 4), i.e. bit 6 =
+    // dial[7], bits 2:0 = dial[6:4], both ACTIVE HIGH; bit 7 is Button 2
+    // (active low), bits 5:3 are cockpit sensors. IP2/IP4 = analogue stick.
+    // Pad: dpad = stick, A = fire, B = shield, X = Start2, Y = Coin2.
+    GID_KROOZR: begin
+        input_0 = ~{ 1'b0, m_service, 1'b0, m_a, m_x, m_start1, m_y, m_coin1 };
+        input_1 = { ~m_b, dial_kz[7], 3'b000, dial_kz[6:4] };
+        input_2 = stick_x;
+        input_3 = 8'hFF;
+        input_4 = stick_y;
+    end
+
+    // TWO TIGERS (Tron-conversion set): IP1 = P1 dial, IP4 = P2 dial, IP2
+    // low nibble = fire buttons, IP0 bit 4 = "Dogfight Start" - moved to
+    // D-pad Up because Select+Start now opens the OSD. Pad: X/Y spin, A/B fire.
+    GID_TWOTIGER: begin
+        input_0 = ~{ 1'b0, m_service, 1'b0, m_up, 1'b0, m_start1, 1'b0, m_coin1 };
+        input_1 = dial_tt;
+        input_2 = ~{ 4'b0000, 2'b00, m_b, m_a };
+        input_3 = 8'hFF;
+        input_4 = 8'h00;   // player 2 dial
+    end
+
+    // DOMINO MAN: IP0 = standard (Place/Strike on bit 4), IP1 = 4-way
+    // joystick. IP3 DIPs = 0x3E: Music On, light skin, bits2-5 unused (idle
+    // high), Upright (bit6 LOW - 0xFF selects cocktail!), two coin meters.
+    // Pad: A/B = Place/Strike, X = Start2, Y = Coin2.
+    default: begin
+        input_0 = ~{ 1'b0, m_service, 1'b0, m_a | m_b, m_x, m_start1, m_y, m_coin1 };
+        input_1 = ~{ 4'b0000, m_down, m_up, m_right, m_left };
+        input_2 = 8'hFF;
+        input_3 = 8'h3E;
+        input_4 = 8'hFF;
+    end
+    endcase
 end
-
-`elsif GAME_TWOTIGER
-// TWO TIGERS (Tron-conversion set): twin spinners. IP1 = player 1 dial,
-// IP4 = player 2 dial, IP2 low nibble = the four fire buttons, and IP0
-// bit 4 is "Dogfight Start". Pad: X/Y spin, A/B fire.
-wire m_start2 = 1'b0;
-wire m_coin2  = 1'b0;
-
-wire [7:0] dial1;
-spinner #(.INC_NORMAL(20), .INC_FAST(40), .INC_SPINNER(20)) tt_dial (
-    .clk(clk_sys), .reset(core_reset),
-    .minus(u_btn_x), .plus(u_btn_y), .fast(1'b0), .strobe(vblank),
-    .spin_in(9'd0), .spin_out(dial1)
-);
-
-always @(*) begin
-    // bit 4 = Dogfight Start (start 3)
-    input_0 = ~{ 1'b0, m_service, 1'b0, u_sel & u_sta, 1'b0, m_start1, m_coin2, m_coin1 };
-    input_1 = dial1;
-    input_2 = ~{ 4'b0000, 2'b00, u_btn_b, u_btn_a };
-    input_3 = 8'hFF;
-    input_4 = 8'h00;   // player 2 dial
-end
-
-`elsif GAME_SHOLLOW
-// SATAN'S HOLLOW: IP0 = standard (no button bit), IP1 = {..., fire,
-// shield, right, left}. Pad: A = fire, B = shield, X = Start2, Y = Coin2.
-wire m_start2 = u_btn_x;
-wire m_coin2  = u_btn_y;
-
-always @(*) begin
-    input_0 = ~{ 2'b00, 1'b0, 1'b0, m_start2, m_start1, m_coin2, m_coin1 };
-    input_1 = ~{ 4'b0000, u_btn_a, u_btn_b, m_right, m_left };
-    input_2 = 8'hFF;
-    input_3 = 8'hFF;
-    input_4 = 8'hFF;
-end
-
-`else
-// DOMINO MAN (default): IP0 = standard (Place/Strike on bit 4), IP1 =
-// 4-way joystick. IP3 DIPs = 0x3E: Music On, light skin, bits2-5 unused
-// (idle high), Upright (bit6 LOW - 0xFF would select cocktail!), two coin
-// meters. Pad: A/B = Place/Strike, X = Start2, Y = Coin2.
-wire m_fire   = u_btn_a | u_btn_b;
-wire m_start2 = u_btn_x;
-wire m_coin2  = u_btn_y;
-
-always @(*) begin
-    input_0 = ~{ 1'b0, m_service, 1'b0, m_fire, m_start2, m_start1, m_coin2, m_coin1 };
-    input_1 = ~{ 4'b0000, m_down, m_up, m_right, m_left };
-    input_2 = 8'hFF;
-    input_3 = 8'h3E;
-    input_4 = 8'hFF;
-end
-`endif
 
 // --- Core Instantiation ---
 // (r/g/b/hblank/vblank/hs/vs/cs are declared just before the controls
@@ -549,6 +562,39 @@ always @(posedge clk_sys) begin
     if (u_sel & u_right & ~tune_r_r & (cap_delay != 5'd31)) cap_delay <= cap_delay + 1'b1;
 end
 
+// --- On-screen display (game-select menu) -----------------------------------
+// Composited onto the core's RGB *here*, before the video path splits, so
+// the menu shows up identically on HDMI, 31 kHz VGA and native 15 kHz.
+// Select+Start toggles it; Up/Down move, A reloads from the SD pack, B
+// exits. The core raster STOPS while a reload holds the core in reset, so
+// expect ~1 s of frozen HDMI frame / dropped VGA sync during a switch.
+wire [8:0] osd_rgb;
+osd #(.GAME_DEFAULT(GAME_DEFAULT)) osd_inst (
+    .clk(clk_sys),
+    .rst(core_reset_raw),
+    .pixel_tick(pixel_tick),
+    .hcnt(core_hcnt),
+    .hblank(hblank),
+    .vblank(vblank),
+    .mode15(tv15khz),
+    .rgb_in({r, g, b}),
+    .rgb_out(osd_rgb),
+    .btn_up(u_up), .btn_down(u_down),
+    .btn_a(u_btn_a), .btn_b(u_btn_b),
+    .btn_sel(u_sel), .btn_sta(u_sta),
+    .game_id(game_id),
+    .load_slot(game_slot),
+    .loader_restart(osd_restart),
+    .loader_done(ldr_done),
+    .loader_error(ldr_error),
+    .sd_ready(sd_ready),
+    .osd_active(osd_active)
+);
+// Both video paths consume the OSD-composited pixels from here on.
+wire [2:0] vid_r = osd_rgb[8:6];
+wire [2:0] vid_g = osd_rgb[5:3];
+wire [2:0] vid_b = osd_rgb[2:0];
+
 // --- PmodVGA Analog Output (native core timing, zero buffering) ---
 // The core's RGB lags its hcnt-derived sync/blank by a fixed pipeline delay
 // (tile fetch -> gfx ROM -> palette -> output regs) - the same lag the HDMI
@@ -578,9 +624,9 @@ wire vblank_d = (cap_delay == 5'd0) ? vblank : vb_sr[vga_tap];
 // 3:3:3 -> 4:4:4 by MSB replication so full intensity maps to full scale.
 // Blank the DAC outside active video so the monitor sees black porches.
 wire cab_blank = hblank_d | vblank_d;
-assign vga_r = cab_blank ? 4'h0 : {r, r[2]};
-assign vga_g = cab_blank ? 4'h0 : {g, g[2]};
-assign vga_b = cab_blank ? 4'h0 : {b, b[2]};
+assign vga_r = cab_blank ? 4'h0 : {vid_r, vid_r[2]};
+assign vga_g = cab_blank ? 4'h0 : {vid_g, vid_g[2]};
+assign vga_b = cab_blank ? 4'h0 : {vid_b, vid_b[2]};
 
 // Sync format. 31 kHz always uses separate negative H/V (standard RGBHV).
 //
@@ -652,7 +698,7 @@ assign pmod1_io = sock_swap ? j1_bus : j2_bus;
 wire cap_active = !vblank && (core_hcnt >= {5'b0, cap_delay}) && (core_hcnt < {5'b0, cap_delay} + 10'd512);
 wire fb_we = pixel_tick && cap_active;
 // RGB444: replicate each 3-bit channel's MSB into bit 0 (as the VGA DAC does)
-wire [11:0] fb_data = {r, r[2], g, g[2], b, b[2]};
+wire [11:0] fb_data = {vid_r, vid_r[2], vid_g, vid_g[2], vid_b, vid_b[2]};
 
 // Single-cycle frame pulse after the last active line (vblank rising edge)
 reg fb_vbl_r = 1'b1;
@@ -687,7 +733,7 @@ uart_beacon #(.CLK_HZ(40_000_000), .BAUD(115200)) beacon (
     .ddr_rst(fb_ddr_rst),
     .cnt_x({hb_h[24:21], hb_x1[25:14]}),
     .cnt_q(hb_27[24:17]),
-    .aux({3'b000, cap_delay}),
+    .aux({game_id, cap_delay}),   // dXX: high 3 bits = running game_id
     .aux2({hb_h[24:21], sd_ready, sd_err, ldr_done, ldr_error}),
     .txd(uart_tx)
 );

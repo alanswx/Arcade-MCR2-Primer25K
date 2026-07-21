@@ -15,7 +15,7 @@ still has the Satan's Hollow map.
 | Dir | Board | FPGA | Status |
 |---|---|---|---|
 | `mcr2_primer25k/` | Tang Primer 25K | GW5A-LV25MG121 | **Working** — Domino Man attract mode over HDMI, 56/56 BSRAM, timing met |
-| `mcr2_console60k/` | Tang Console 60K | GW5AT-LV60PG484 | **Working** — USB HID gamepad; per-game configs (Domino/Tron/Shollow); DDR3 framebuffer → 720p HDMI w/ audio; analog VGA on J10 with 15/31 kHz strap |
+| `mcr2_console60k/` | Tang Console 60K | GW5AT-LV60PG484 | **Working** — USB HID gamepad; all six games compiled in, OSD menu (Select+Start) switches at runtime via the SD pack; DDR3 framebuffer → 720p HDMI w/ audio; analog VGA on J10 with 15/31 kHz strap |
 | `mcr2_console138k/` | Tang Console 138K | GW5AST-LV138 | Stale pre-fix top; needs same backport as 60K |
 
 Shared, platform-independent code lives in `src/`:
@@ -51,7 +51,11 @@ Bitstream lands at `<board>/impl/pnr/<board>.fs`. Flash with Gowin Programmer
 (GUI) or `openFPGALoader` if installed.
 
 ### Post-build sanity checks (do these every build)
-1. **No `PA1019`** (PLL VCO out of range) warning in the log.
+1. **No `PA1019`** (PLL VCO out of range) warning in the log — with ONE
+   accepted exception on the 60K: `gowin_pll_hdmi` (27 MHz x 55 = 1485 MHz
+   VCO for 720p TMDS) always warns. That is NESTang's standard config,
+   confirmed working on this hardware; a PA1019 naming any OTHER PLL
+   (especially `gowin_pll_mcr2`) is still a build-breaker.
 2. 25K only: `BSRAM ... 56/56` in `impl/pnr/*.rpt.txt` — must not exceed 56.
 3. Positive SETUP and HOLD slack in `impl/pnr/*.timing_paths`.
 4. **`grep -i "Undeclared symbol" impl/gwsynthesis/*.log` must be empty.**
@@ -75,10 +79,13 @@ python3 tools/merge_roms.py shollow
 ```
 
 Writes `rom_*.hex` into every board's `src/` and into `src/rtl/`, **and**
-generates `game_config.vh` in the console board dirs, which the 60K top
-`include`s to select the matching per-game input/DIP mapping (`GAME_TRON`
-etc.). ROMs and input map therefore always switch together — run the script,
-then rebuild. Gowin resolves `INIT_FILE`/`include` relative to the
+generates `game_config.vh` in the console board dirs. On the 60K all six
+per-game input/DIP maps are compiled in and muxed at runtime by `game_id`
+(owned by the OSD menu in `src/rtl/osd.sv`); `game_config.vh` (`GAME_TRON`
+etc.) only sets which game's ROMs are BAKED in — i.e. what boots with no SD
+card — and the matching `GAME_DEFAULT` for `game_id`. ROMs and input map
+still always match: at boot both come from the script's game, and an OSD
+switch reloads ROMs from the SD pack as it changes `game_id`. Gowin resolves `INIT_FILE`/`include` relative to the
 **instantiating source file's directory**: the board tops (`rom_main.hex`,
 `rom_snd.hex`, `game_config.vh`) resolve next to themselves; the gfx ROMs
 instantiated inside `mcr2.vhd` (`rom_gfx1_*.hex`, `rom_gfx2.hex`) resolve
@@ -172,10 +179,16 @@ bus is inert in these standalone builds.
 
 ### Buttons / diagnostics
 25K: S1 = reset, S2 = color-bar test pattern + Coin 1.
-60K: key AA13 = reset, key AB13 = Coin 1. UART beacon on U15 (→ USB-C
-serial, 115200): `FB c<calib> r<ddr_rst> x<clk_x1 cnt> q<27M cnt> d<cap_delay>`
-every ~0.5 s — frozen counters identify a dead clock domain with the case
-closed. Select+D-pad Right/Left tunes the capture delay live (D-pad is
+60K: key AA13 = reset, key AB13 = Coin 1. **Select+Start opens the OSD
+game-select menu** (Up/Down move, A loads the highlighted game from the SD
+pack, B exits; all game inputs are masked while it is open; the raster
+stops during the ~1 s reload, so the screen freezes/drops sync — expected).
+The menu draws in the core raster domain, so it appears on HDMI and analog
+video alike, rotated on Tron/Shollow (ROT90 cabinets). UART beacon on U15
+(→ USB-C serial, 115200): `FB c<calib> r<ddr_rst> x<clk_x1 cnt> q<27M cnt>
+d<aux>` every ~0.5 s, where `d`'s high 3 bits = running `game_id` and low
+5 bits = cap_delay — frozen counters identify a dead clock domain with the
+case closed. Select+D-pad Right/Left tunes the capture delay live (D-pad is
 masked from the game while Select is held).
 
 ### Analog video (60K): PmodVGA on J10

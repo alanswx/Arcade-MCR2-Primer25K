@@ -55,6 +55,7 @@ localparam [63:0] MAGIC = 64'h4D_43_52_50_41_43_4B_31;
 reg [2:0]  st;
 reg [26:0] watchdog;     // hard upper bound on the whole load (~1.7s @40MHz)
 reg [63:0] hdr;
+reg [7:0]  slot_cnt;     // header byte 8: number of slots in the pack
 reg [8:0]  hdr_cnt;
 reg [8:0]  sect_left_hi;   // sectors remaining in this slot (0..256)
 reg [31:0] sector;
@@ -98,6 +99,7 @@ always @(posedge clk) begin
             else begin
                 if (sd_dout_valid) begin
                     if (hdr_cnt < 9'd8) hdr <= {hdr[55:0], sd_dout};
+                    if (hdr_cnt == 9'd8) slot_cnt <= sd_dout;
                     hdr_cnt <= hdr_cnt + 9'd1;
                 end
                 if (sd_rd_done) st <= L_HDRCHK;
@@ -107,6 +109,9 @@ always @(posedge clk) begin
         L_HDRCHK: begin
             if (hdr != MAGIC) begin
                 st <= L_ERR;            // blank or foreign card
+            end else if ({4'd0, slot} >= slot_cnt) begin
+                st <= L_ERR;            // pack has no such slot - loading it
+                                        // would stream zeros over the ROMs
             end else begin
                 sector       <= PACK_BASE + 32'd1 + (slot * SLOT_SECTORS);
                 sect_left_hi <= 9'(SLOT_SECTORS);

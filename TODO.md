@@ -134,16 +134,33 @@ IP4 / J6, which is not pinned at all** — see the Shield PCB section.
 
 ## Multi-game / product
 
-- **`game_slot` is hardwired to 0.** Slot selection needs the 74HC165 DIP
-  reader (`docs/universal_mcr_shield_spec.md` §7b, J10 pins 20/31/32).
-  Until then, changing games means rebuilding the pack in a different order.
-- **No menu/OSD** (Phase B). The framebuffer has an overlay path; SW2-1 is
-  reserved for menu-enable.
+- **OSD game-select menu is IMPLEMENTED (60K)** — `src/rtl/osd.sv`, drawn in
+  the core raster domain so it shows on HDMI + VGA 31 kHz + 15 kHz alike.
+  Select+Start opens; Up/Down, A = load slot from SD pack, B = exit. All six
+  input maps are now compiled in and muxed at runtime by `game_id`;
+  `game_config.vh` only picks the baked-in boot game. Remaining OSD work:
+  - **Untested on hardware** (menu draw, reload flow, both orientations).
+  - **ROT90 direction unverified**: menu on Tron/Shollow is drawn rotated
+    for a cabinet monitor; if it reads mirrored/upside-down, swap the
+    mapping noted in `osd.sv` (u/v remap line).
+  - **"LOADING..." is never visible**: the core raster stops while the core
+    is reset during a reload, so the screen freezes (HDMI) / drops sync
+    (VGA) for ~1 s instead. Fix would be keeping the video counters running
+    through reset in `mcr2.vhd` (touchy — it's shared with the 25K).
+  - **Opening the menu inserts a coin** (Select doubles as Coin1 before the
+    Start half of the combo lands). Harmless; goes away when the shield's
+    dedicated service button opens the menu instead.
+  - **Stale CMOS RAM across switches**: each game boots on the previous
+    game's CMOS contents; MCR games checksum it and factory-reset, so this
+    should self-heal — verify per game, else clear cmos_ram on reload.
+  - **No prefs persistence** (last-selected game etc. → SD CMD24 write).
+  - **Two Tigers' Dogfight Start moved to D-pad Up** (was Select+Start,
+    which is now the menu combo).
 - **No multiboot selector** for switching MCR family cores (2.5 MB per core,
   so all three fit well under 8 MB of flash).
-- **Fallback behaviour is minimal.** Loader failure currently just falls back
-  to the baked ROMs; the shield spec requires a visible status code (LED)
-  so a field failure is diagnosable without a laptop.
+- **Fallback behaviour is minimal.** Loader failure falls back to the baked
+  ROMs and the OSD shows "LOAD FAILED"; the shield spec still wants a status
+  LED so a field failure is diagnosable without a display.
 
 ## Shield PCB
 

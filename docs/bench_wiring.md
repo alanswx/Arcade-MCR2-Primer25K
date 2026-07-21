@@ -126,8 +126,12 @@ emits), so you always have a reference picture.
 ## No wiring needed
 
 - **HDMI** — onboard connector.
-- **USB gamepad** — left USB-A port.
+- **USB gamepad** — left USB-A port. **Select+Start opens the game-select
+  OSD** (Up/Down move, A loads from the SD pack, B exits). The screen
+  freezing (HDMI) or dropping sync (VGA) for ~1 s after pressing A is the
+  reload, not a crash.
 - **MicroSD** (ROM loading) — onboard slot.
 - **Status beacon** — USB-C serial, 115200 8N1: `FB c_ r_ x____ q__ d__ L__`
-  (DDR calib, DDR reset, pixel-clock counter, 27 MHz counter, capture delay,
+  (DDR calib, DDR reset, pixel-clock counter, 27 MHz counter,
+  d = game_id[2:0] in the high 3 bits + capture delay in the low 5,
   loader state).
