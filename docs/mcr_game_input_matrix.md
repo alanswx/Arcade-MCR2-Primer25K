@@ -113,6 +113,49 @@ matrix cannot tell you bit positions. Verified examples:
 Method for new games: `awk '/INPUT_PORTS_START\( <game> \)/,/INPUT_PORTS_END/'
 mcr.cpp` and read the `PORT_BIT` masks. All inputs are active low.
 
+## Where the DIP switches physically live (and connector-number decoding)
+
+Verified against MAME 0.265 (`mcr.cpp` + `mcr3.cpp`): **every SSIO-based MCR
+game — all of MCR-1, MCR-2, and MCR-3 — uses the identical input scheme.**
+The DIPs never moved between hardware generations:
+
+| SSIO port | Physical location (MAME/schematic comments) | Function |
+|---|---|---|
+| IP0 | SSIO connector **J4 pins 1–8** | coins, starts, button 1, tilt, service |
+| IP1 | SSIO connector **J4 pins 10–13, 15–18** | dial/joystick/trackball-X (per game) |
+| IP2 | SSIO connector **J5 pins 1–8** | joystick/trackball-Y/P2 (per game) |
+| IP3 | **DIP bank at board location B3 — on the SSIO board, NOT a connector** | game options |
+| IP4 | SSIO connector **J6 pins 1–8** | second dial / aux (per game) |
+
+Answers to the obvious questions:
+
+- **Did the DIPs move around per game/generation? No.** One bank, location
+  B3 on the Super Sound I/O board, read as IP3, on every SSIO game from
+  Kick (1981) through Discs of Tron (1983). Physically a 10-position bank;
+  8 positions reach IP3 (Tron's manual: 9 unused, 10 = freeze).
+- **Do the DIPs plug into a connector / get unplugged for a fire button or
+  spinner? No.** The DIPs are switches mounted on the board; buttons and
+  spinners arrive on the J4/J5/J6 harness connectors — electrically separate
+  lines. Nothing is ever unplugged.
+- **Then how does Tron put a cocktail fire button "in" IP3 bit 7?** The
+  harness wire and DIP position 8 are two contacts on the *same* active-low
+  input line, in parallel. The manual's convention: leave SW1-8 OFF
+  (open) so the button can pull the line. Our shield replicates exactly
+  this: the FPGA ORs the SW1 bit with the harness line — leave the switch
+  off, the button works; leave it on, the input is held active, which is
+  precisely what the original hardware would do too.
+- **There is a SECOND DIP bank** most people never touch: 6 switches on the
+  SSIO read by the *sound* Z80 at 0xF000 (MAME's `ssio:DIP` port). Every
+  game we've extracted leaves it unused (0xFF); it is sound-board config,
+  not game options. We model it as constant 0xFF.
+
+**Connector-numbering caution:** the tables at the top of this file (from
+the master pinout PDF) group pins by *cabinet function* using J2/J3/J4/J5
+labels that do **not** match the SSIO board's own J4/J5/J6 numbering above
+— e.g. the PDF's "J3 coin door" pins land on SSIO J4 1-8 (IP0). Treat the
+PDF's function names as truth and its J-labels as this project's harness
+grouping; when reading MAME or original schematics, use the SSIO numbers.
+
 ## Known gaps (not covered by the matrix PDF)
 
 - **J6** — MAME lists `ssio:IP4` as "J6 1-8" (auxiliary inputs); the matrix

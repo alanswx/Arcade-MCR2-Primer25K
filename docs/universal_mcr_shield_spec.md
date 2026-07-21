@@ -215,8 +215,12 @@ the operator sets the real switches. Two caveats survive from the analysis
 below: the cocktail bit lives at a different IP3 position per game (that is
 now simply the operator's problem to set per the game's card, as it was in
 1982), and **IP3 is not purely DIPs for every game** — Tron's bit 7 is the
-cocktail player's fire button, a live input that must be OR'd from the
-harness, not taken from the switch (the FPGA masks SW1 bit 8 for Tron).
+cocktail player's fire button. The original hardware wired that harness
+line in parallel with DIP position 8 on the same active-low input, and the
+manual said "leave SW1-8 OFF". We replicate it exactly: the FPGA ORs the
+switch bit with the harness line, no per-game masking — same behaviour,
+same operator convention, including the same failure mode if the switch is
+left on.
 
 **Cocktail pin impact:** unchanged — cocktail P2 controls for Tron/Domino
 arrive on SSIO IP2 = J5 1-8, already allocated in §4b. The outstanding item
