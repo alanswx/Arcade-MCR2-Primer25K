@@ -48,7 +48,10 @@ DYLD_LIBRARY_PATH="$GWLIB" DYLD_FRAMEWORK_PATH="$GWLIB" "$GW" build.tcl
 ```
 
 Bitstream lands at `<board>/impl/pnr/<board>.fs`. Flash with Gowin Programmer
-(GUI) or `openFPGALoader` if installed.
+(GUI) or `openFPGALoader`. To make a build the POWER-ON default (survives
+power cycles, replaces whatever is in the SPI flash - e.g. NESTang):
+`openFPGALoader -b tangconsole -f bitstreams/console60k_<game>.fs`.
+For a volatile test load (SRAM only, lost at power-off) drop the `-f`.
 
 ### Post-build sanity checks (do these every build)
 1. **No `PA1019`** (PLL VCO out of range) warning in the log — with ONE

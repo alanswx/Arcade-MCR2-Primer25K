@@ -182,11 +182,9 @@ IP4 / J6, which is not pinned at all** — see the Shield PCB section.
 
 ## Cores / ports
 
-- **MCR-1** (Kick, Solar Fox): small next core, shares SSIO + video generator.
-- **MCR-3** (Tapper, Timber, Discs of Tron, Rampage, Spy Hunter, …): needs
-  external ROM storage (SDRAM module on J9) plus extra sound boards
-  (Squawk & Talk, Turbo Cheap Squeak); one dual-CPU title. All ROMs are
-  already in `roms/`.
+- **See `docs/mcr_core_roadmap.md`** for the phased plan (MCR-1 first,
+  SDRAM bring-up, then 91490/Tapper class, then the sound boards and
+  scroll/mono games). All ROMs are already in `roms/`.
 - **Tang Primer 25K project is stale**: still the line-buffer video path and
   a Satan's Hollow input map. Fine as-is, but it no longer matches the 60K.
 - **Tang Console 138K project is stale**: pre-framebuffer architecture.
