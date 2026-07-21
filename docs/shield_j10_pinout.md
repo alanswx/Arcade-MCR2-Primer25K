@@ -84,15 +84,31 @@ anyway:
 
 | Domain | What lives in it | Crossing to/from |
 |---|---|---|
-| **3.3 V logic** (shield LDO from the buck's 5 V — J10 has no 3V3 pin) | 74HC165 ×7, 74HC595, pull-ups, everything wired to J10 | is the FPGA's native level: direct connection |
-| **5 V / cabinet harness** | switch loops (pulled to 5 V via 4.7 kΩ, switched to cabinet GND), monitor sync inputs | **inputs:** TLP281-4 optos — LED on the 5 V side, transistor on the 3.3 V side. The opto IS the level shifter (plus fault isolation). **sync out:** 74HCT244 powered at 5 V (its TTL thresholds accept 3.3 V swings — that is why HCT here) or a BC847 stage. **RGB out:** passive R2R ladder, no logic. |
+| **3.3 V logic** (shield LDO from the buck's 5 V — J10 has no 3V3 pin) | shift registers, pull-ups, everything wired to J10 | is the FPGA's native level: direct connection |
+| **5 V / cabinet harness** | switch loops (pulled to 5 V via 4.7 kΩ, switched to cabinet GND), monitor sync inputs | **inputs: the 74AHC165s themselves.** AHC inputs are rated to 5.5 V *independent of VCC*, so a 3.3 V-powered '165 legally takes the 5 V harness levels straight in — the shift register IS the level shifter. Each line gets a passive conditioning pad (below), nothing active. **sync out:** 74HCT244 powered at 5 V (its TTL thresholds accept 3.3 V swings — that is why HCT here) or a BC847 stage. **RGB out:** passive R2R ladder, no logic. |
 | **12 V loads** | coin meters, lamps | ULN2803 Darlington array (3.3 V logic input is sufficient drive; built-in flyback diodes) |
 
-Part-selection rule that follows: the shift registers must be **74HC**
-(CMOS thresholds, 2–6 V supply — happy at 3.3 V), **not 74HCT** (5 V-only
-TTL thresholds) and not 74LS. The one deliberate HCT part is the 5 V sync
-buffer, chosen *because* of its TTL thresholds. At 3.3 V a 74HC165 shifts
-well above 10 MHz; the chain runs at 2 MHz.
+Part-selection rules that follow:
+- Input chain: **74AHC165** (TI SN74AHC165 / Nexperia 74AHC165) at
+  VCC = 3.3 V. The load-bearing datasheet line is *"recommended input
+  voltage up to 5.5 V regardless of VCC"* — verify it in the exact
+  vendor/package chosen at order time. Thresholds at 3.3 V: VIH ≈ 2.3 V
+  (5 V idle line: fine), VIL ≈ 1.0 V (closed switch: fine).
+- **Plain 74HC165 will NOT work here** (inputs limited to VCC + 0.5 V —
+  5 V in on a 3.3 V part is out of spec); 74HCT/74LS are 5 V-supply
+  parts. The output '595 sees only 3.3 V signals, so 74HC595 or
+  74AHC595 both work.
+- The one deliberate HCT part is the 5 V sync buffer, chosen *because*
+  of its TTL thresholds. The chain runs at 2 MHz — decades below any of
+  these parts' limits.
+
+**Why no optocouplers?** The earlier spec draft used TLP281-4s "for
+isolation", but the shield's buck is non-isolated — cabinet ground and
+logic ground are already common through the power path, so the optos
+never provided galvanic isolation, only over-voltage protection. The
+conditioning pad below provides that protection passively. (If a truly
+isolated build is ever wanted, it needs an isolated supply first; the
+opto variant is preserved in the spec's git history.)
 
 ## 3. Input chain — every switch in the cabinet on 3 pins
 
@@ -117,82 +133,92 @@ Serial arrival order (RTL contract, not a PCB concern): after the load
 pulse, bits arrive **U7 first, input H first** — U7.H, U7.G … U7.A, U6.H
 … down to U1.A last.
 
-### 3b. '165 inputs ↔ optos ↔ MCR harness, device by device
+### 3b. '165 inputs ↔ conditioning ↔ MCR harness, device by device
 
 '165 input pins: A=11, B=12, C=13, D=14, E=3, F=4, G=5, H=6. Each
-harness line goes: cabinet connector → TLP281-4 LED side (4.7 kΩ to +5 V,
-switch closes to cabinet GND) → opto transistor pulls the '165 input low
-against its 4.7 kΩ pull-up to 3V3. Idle = high, pressed = low — the same
-polarity the original SSIO saw. Optos are numbered OK1…OK10 (TLP281-4 =
-4 channels each); two quads serve each harness '165.
+harness line gets the same passive pad — this is the whole input stage:
 
-**U1 — player 1 + coins** (optos OK1, OK2)
+    harness pin ──┬── 4.7 kΩ pull-up to +5 V (shield rail)
+                  └── 1 kΩ series ──┬── 74AHC165 input
+                                    ├── 10 nF to GND (RC ≈ 10 µs — the
+                                    │   same line filtering the SSIO had)
+                                    └── BAT54S clamp to +5 V / GND
+                                        (survives a 12 V miswire: the
+                                        fault drops across the 1 kΩ)
 
-| '165 input | pin | opto ch | MCR harness | Function |
-|---|---|---|---|---|
-| A | 11 | OK1.1 | J2-1 | P1 Up |
-| B | 12 | OK1.2 | J2-2 | P1 Down |
-| C | 13 | OK1.3 | J2-3 | P1 Left |
-| D | 14 | OK1.4 | J2-4 | P1 Right |
-| E | 3 | OK2.1 | J2-5 | P1 Button 1 |
-| F | 4 | OK2.2 | J2-6 | P1 Button 2 |
-| G | 5 | OK2.3 | J3-1 | Coin 1 |
-| H | 6 | OK2.4 | J3-2 | Coin 2 |
+Idle = 5 V = high, pressed = low — the same polarity the original SSIO
+saw, read by a 3.3 V part with 5.5 V-tolerant inputs. All eight bits of a
+dial bus share identical pads, so RC skew between bits is nil and the
+atomic '165 load strobe samples a coherent word.
 
-**U2 — system + P2 switches** (optos OK3, OK4)
+**U1 — player 1 + coins**
 
-| '165 input | pin | opto ch | MCR harness | Function |
-|---|---|---|---|---|
-| A | 11 | OK3.1 | J3-3 | Start 1 |
-| B | 12 | OK3.2 | J3-4 | Start 2 |
-| C | 13 | OK3.3 | J3-5 | Tilt |
-| D | 14 | OK3.4 | J5-17 | P2 Left |
-| E | 3 | OK4.1 | J5-18 | P2 Right |
-| F | 4 | OK4.2 | J5-19 | P2 Button 1 (Tron cocktail fire — the FPGA also ORs this with SW1-8, spec §7a; no special wiring) |
-| G | 5 | OK4.3 | spare pad | tie the '165 input high via its pull-up |
-| H | 6 | OK4.4 | spare pad | " |
+| '165 input | pin | MCR harness | Function |
+|---|---|---|---|
+| A | 11 | J2-1 | P1 Up |
+| B | 12 | J2-2 | P1 Down |
+| C | 13 | J2-3 | P1 Left |
+| D | 14 | J2-4 | P1 Right |
+| E | 3 | J2-5 | P1 Button 1 |
+| F | 4 | J2-6 | P1 Button 2 |
+| G | 5 | J3-1 | Coin 1 |
+| H | 6 | J3-2 | Coin 2 |
 
-**U3 — Opt X: the 8-bit dial/spinner/trackball-X bus** (optos OK5, OK6)
+**U2 — system + P2 switches**
 
-| '165 input | pin | opto ch | MCR harness | Function |
-|---|---|---|---|---|
-| A | 11 | OK5.1 | J4-1 | Opt X D0 |
-| B | 12 | OK5.2 | J4-2 | Opt X D1 |
-| C | 13 | OK5.3 | J4-3 | Opt X D2 |
-| D | 14 | OK5.4 | J4-4 | Opt X D3 |
-| E | 3 | OK6.1 | J4-5 | Opt X D4 |
-| F | 4 | OK6.2 | J4-6 | Opt X D5 |
-| G | 5 | OK6.3 | J4-7 | Opt X D6 |
-| H | 6 | OK6.4 | J4-9 | Opt X D7 (J4-8 is the connector key, J4-10 is GND) |
+| '165 input | pin | MCR harness | Function |
+|---|---|---|---|
+| A | 11 | J3-3 | Start 1 |
+| B | 12 | J3-4 | Start 2 |
+| C | 13 | J3-5 | Tilt |
+| D | 14 | J5-17 | P2 Left |
+| E | 3 | J5-18 | P2 Right |
+| F | 4 | J5-19 | P2 Button 1 (Tron cocktail fire — the FPGA also ORs this with SW1-8, spec §7a; no special wiring) |
+| G | 5 | spare pad | tie the '165 input high via its pull-up |
+| H | 6 | spare pad | " |
+
+**U3 — Opt X: the 8-bit dial/spinner/trackball-X bus**
+
+| '165 input | pin | MCR harness | Function |
+|---|---|---|---|
+| A | 11 | J4-1 | Opt X D0 |
+| B | 12 | J4-2 | Opt X D1 |
+| C | 13 | J4-3 | Opt X D2 |
+| D | 14 | J4-4 | Opt X D3 |
+| E | 3 | J4-5 | Opt X D4 |
+| F | 4 | J4-6 | Opt X D5 |
+| G | 5 | J4-7 | Opt X D6 |
+| H | 6 | J4-9 | Opt X D7 (J4-8 is the connector key, J4-10 is GND) |
 
 Used by: Tron aim dial, Kick spinner, Kroozr dial, Wacko trackball X,
 DoT rotary, Spy Hunter steering (roadmap).
 
-**U4 — Opt Y / P2 stick** (optos OK7, OK8)
+**U4 — Opt Y / P2 stick**
 
-| '165 input | pin | opto ch | MCR harness | Function |
-|---|---|---|---|---|
-| A | 11 | OK7.1 | J5-1 | Opt Y D0 |
-| B | 12 | OK7.2 | J5-2 | Opt Y D1 |
-| C | 13 | OK7.3 | J5-3 | Opt Y D2 |
-| D | 14 | OK7.4 | J5-4 | Opt Y D3 |
-| E | 3 | OK8.1 | J5-5 | Opt Y D4 |
-| F | 4 | OK8.2 | J5-6 | Opt Y D5 |
-| G | 5 | OK8.3 | J5-15 | Opt Y D6 / P2 Up |
-| H | 6 | OK8.4 | J5-16 | Opt Y D7 / P2 Down |
+| '165 input | pin | MCR harness | Function |
+|---|---|---|---|
+| A | 11 | J5-1 | Opt Y D0 |
+| B | 12 | J5-2 | Opt Y D1 |
+| C | 13 | J5-3 | Opt Y D2 |
+| D | 14 | J5-4 | Opt Y D3 |
+| E | 3 | J5-5 | Opt Y D4 |
+| F | 4 | J5-6 | Opt Y D5 |
+| G | 5 | J5-15 | Opt Y D6 / P2 Up |
+| H | 6 | J5-16 | Opt Y D7 / P2 Down |
 
 Used by: Wacko trackball Y; P2 stick for Tapper/Timber (roadmap) and
 cocktail play.
 
-**U5 — J6 / SSIO IP4 aux port** (optos OK9, OK10; J6 pin IDs provisional
-— the matrix PDF has no J6 sheet, cross-check a cabinet manual before
-crimping, `TODO.md`)
+**U5 — J6 / SSIO IP4 aux port** (J6 pin IDs provisional — the matrix PDF
+has no J6 sheet, cross-check a cabinet manual before crimping, `TODO.md`)
 
-| '165 input | pin | opto ch | MCR harness | Function |
-|---|---|---|---|---|
-| A…H | 11,12,13,14,3,4,5,6 | OK9.1…OK10.4 | J6-1…J6-8 | IP4 D0…D7: Kroozr stick Y (**needed even upright**), Two Tigers P2 dial, Wacko cocktail aim, DoT aux (roadmap) |
+| '165 input | pin | MCR harness | Function |
+|---|---|---|---|
+| A…H | 11,12,13,14,3,4,5,6 | J6-1…J6-8 | IP4 D0…D7: Kroozr stick Y (**needed even upright**), Two Tigers P2 dial, Wacko cocktail aim, DoT aux (roadmap) |
 
-**U6 / U7 — the DIP banks** (no optos: the switches live ON the shield)
+**U6 / U7 — the DIP banks** (on-shield switches: no conditioning pads
+needed, and their pull-ups go to 3V3, not 5 V — mixed levels are fine on
+5.5 V-tolerant inputs)
 
 | Device | '165 input A…H | Connects to | Function |
 |---|---|---|---|

@@ -49,7 +49,7 @@ makes it fit:
 | Audio PWM L/R | 2 | out | RC filter → LM386 |
 | Status LEDs | 4 | out | direct |
 | Mode/sync straps | 3 | in | solder jumpers |
-| **ALL cabinet inputs + both DIP banks** (J2, J3, J4, J5, J6/IP4, SW1, SW2 = 56 bits) | **3** | in | 7× 74HC165 chain |
+| **ALL cabinet inputs + both DIP banks** (J2, J3, J4, J5, J6/IP4, SW1, SW2 = 56 bits) | **3** | in | 7× 74AHC165 chain (5 V-tolerant inputs) |
 | **All outputs** (coin meters, lamps — extensible) | 4 | out | 74HC595 chain + ULN2803 |
 | Service button | 1 | in | direct (opens the OSD) |
 | Spares | 7 | — | |
@@ -69,9 +69,17 @@ polling. HDMI, USB, SD and DDR3 cost zero shield pins (SOM/dock balls).
 - **Power:** cabinet +12 V → onboard buck (LM2596/MP1584EN, ≥1.5 A) → 5 V to
   the Console's 5 V input. Do not use the cabinet's +5 V rail (noise/brownout)
   or −5 V rail (not needed — no 4116 DRAMs).
-- **Inputs:** TLP281-4 quad optos, cabinet side pulled to +5 V through
-  4.7 kΩ; output transistor pulls the FPGA pin (internal pull-up, 3.3 V) to
-  GND. 100% galvanic isolation of all 30 input lines (8 × TLP281-4).
+- **Inputs (revised 2026-07-21 — no optos):** harness lines go directly
+  into the shield's **74AHC165** shift registers, powered at 3.3 V — AHC
+  inputs are rated to 5.5 V independent of VCC, so the '165 itself does
+  the 5 V → 3.3 V translation. Per line: 4.7 kΩ pull-up to +5 V, 1 kΩ
+  series, 10 nF to GND, BAT54S clamp to +5 V/GND (a 12 V miswire drops
+  across the series R). Full pad + rationale in `shield_j10_pinout.md`
+  §2/§3b. The earlier TLP281-4 opto plan claimed galvanic isolation the
+  non-isolated buck never actually allowed (grounds are common through
+  the power path); the pads keep the fault protection at a fraction of
+  the parts. Plain 74HC165 is NOT a substitute (inputs limited to
+  VCC + 0.5 V).
 - **Video RGB:** R2R ladder per gun (510 Ω / 1 kΩ / 2 kΩ for bits 2/1/0)
   into the monitor's 75 Ω load ≈ 1 Vp-p. No active buffer needed.
 - **Video sync:** 3.3 V FPGA → BC847 NPN stage (or 74HCT244 powered at 5 V)
@@ -241,7 +249,7 @@ joystick, Two Tigers' P2 dial, and Kroozr's analogue-stick Y axis (the last
 needed even upright). Allocate from the 8 reserved pins once J6's cabinet
 wiring is established.
 
-### 7b. Reading them (74HC165)
+### 7b. Reading them (74AHC165)
 
 The two DIP banks are simply devices **U6 (SW1) and U7 (SW2) on the
 unified input chain** defined in `shield_j10_pinout.md` §3 (IN_CLK /

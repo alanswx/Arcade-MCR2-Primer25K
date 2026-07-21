@@ -175,7 +175,7 @@ budget exists anymore. See the Shield PCB section.
 - **Header pinout is FROZEN (2026-07-21): `docs/shield_j10_pinout.md`.**
   Everything on J10 only — video/audio/straps/LEDs on the pins today's
   bitstreams already drive, ALL cabinet inputs + both DIP banks on a
-  7×74HC165 chain (3 pins), outputs on a 74HC595+ULN2803 chain (4 pins),
+  7×74AHC165 chain (3 pins; 3.3 V parts, 5 V-tolerant inputs), outputs on a 74HC595+ULN2803 chain (4 pins),
   service button direct. This resolved the old J6/IP4 gap (chain device
   U5) and the lamp/coin-meter question ('595 chain, extensible free).
   Remaining on it:
