@@ -367,15 +367,15 @@ always @(posedge clk) begin
 end
 
 // SDRAM_CLK forwarded through a Gowin ODDR (was Altera altddio_out).
-// D0=0/D1=1 -> pin follows ~clk (180 deg): data this controller launches on
-// clk's rising edge is stable when the chip samples on its own rising edge
-// (= our falling edge, mid data window). If reads are flaky on hardware,
-// swap D0/D1 for 0 deg forwarding - the one phase knob a bring-up may tune.
+// PHASE (the one bring-up knob): D0=1/D1=0 -> pin follows clk (0 deg fwd).
+// The initial D0=0/D1=1 (180 deg) failed on hardware - the memtest reported
+// the module responding but returning wrong read data (c0, got != expected),
+// the textbook wrong-phase symptom - so this is flipped to 0 deg.
 ODDR sdramclk_ddr (
 	.Q0(SDRAM_CLK),
 	.Q1(),
-	.D0(1'b0),
-	.D1(1'b1),
+	.D0(1'b1),
+	.D1(1'b0),
 	.TX(1'b0),
 	.CLK(clk)
 );
