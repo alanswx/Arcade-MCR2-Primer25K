@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-002</Device>
+    <FileList>
+        <!-- Gowin Project Top-Level Wrapper -->
+        <File path="src/mcr1_console60k_top.sv" type="file.verilog" enable="1"/>
+
+        <!-- Custom optimized/initialized RAM wrappers -->
+        <File path="../src/rtl/dpram.sv" type="file.verilog" enable="1"/>
+        <File path="../src/rtl/gen_ram.sv" type="file.verilog" enable="1"/>
+
+        <!-- Clocks, Audio cores -->
+        <File path="../src/rtl/gowin_pll_mcr2.v" type="file.verilog" enable="1"/>
+
+        <!-- USB HID host (gamepad input on USB-A port) -->
+        <File path="../src/usb/gowin_pll_usb.v" type="file.verilog" enable="1"/>
+        <File path="../src/usb/usb_hid_host.v" type="file.verilog" enable="1"/>
+        <File path="../src/usb/usb_hid_host_rom.v" type="file.verilog" enable="1"/>
+        <File path="../src/audio/ds_dac.sv" type="file.verilog" enable="1"/>
+        <File path="../src/rtl/uart_beacon.sv" type="file.verilog" enable="1"/>
+        <File path="../src/rtl/sd_spi_phy.sv" type="file.verilog" enable="1"/>
+        <File path="../src/rtl/sd_reader.sv" type="file.verilog" enable="1"/>
+        <File path="../src/rtl/rom_loader.sv" type="file.verilog" enable="1"/>
+        <File path="../src/rtl/osd.sv" type="file.verilog" enable="1"/>
+
+        <!-- DDR3 framebuffer + 720p HDMI w/ audio (nand2mario/gbatang) -->
+        <File path="../src/ddr3fb/ddr3_framebuffer.v" type="file.verilog" enable="1"/>
+        <File path="../src/ddr3fb/ddr3_memory_interface.v" type="file.verilog" enable="1"/>
+        <File path="../src/ddr3fb/pll_27.v" type="file.verilog" enable="1"/>
+        <File path="../src/ddr3fb/pll_ddr3.v" type="file.verilog" enable="1"/>
+        <File path="../src/ddr3fb/gowin_pll_hdmi27.v" type="file.verilog" enable="1"/>
+        <File path="../src/ddr3fb/pll_mDRP_intf.v" type="file.verilog" enable="1"/>
+        <File path="../src/ddr3fb/hdmi/audio_clock_regeneration_packet.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ddr3fb/hdmi/audio_info_frame.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ddr3fb/hdmi/audio_sample_packet.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ddr3fb/hdmi/auxiliary_video_information_info_frame.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ddr3fb/hdmi/hdmi.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ddr3fb/hdmi/packet_assembler.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ddr3fb/hdmi/packet_picker.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ddr3fb/hdmi/serializer.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ddr3fb/hdmi/source_product_description_info_frame.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ddr3fb/hdmi/tmds_channel.sv" type="file.verilog" enable="1"/>
+
+        <!-- MCR2 Arcade Core files (VHDL/SystemVerilog) -->
+        <File path="../src/rtl/mcr1.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/rtl/mcr_sound_board.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/rtl/YM2149_linmix_sep.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/rtl/midssio_82s123.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/rtl/cmos_ram.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/rtl/spinner.sv" type="file.verilog" enable="1"/>
+
+        <!-- Z80 T80 CPU core -->
+        <File path="../src/rtl/T80/t80_1_alu.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/rtl/T80/t80_2_mcode.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/rtl/T80/t80_3_reg.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/rtl/T80/t80_4_core.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/rtl/T80/t80_5_pa.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/rtl/T80/t80_6_s.vhd" type="file.vhdl" enable="1"/>
+
+        <!-- Z80 CTC core -->
+        <File path="../src/rtl/Z80CTC/ctc_controler.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/rtl/Z80CTC/ctc_counter.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/rtl/Z80CTC/z80ctc_top.vhd" type="file.vhdl" enable="1"/>
+
+        <!-- Physical and Timing Constraints -->
+        <File path="src/mcr1_console60k.cst" type="file.cst" enable="1"/>
+        <File path="src/mcr1_console60k.sdc" type="file.sdc" enable="1"/>
+    </FileList>
+</Project>

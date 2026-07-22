@@ -194,9 +194,20 @@ budget exists anymore. See the Shield PCB section.
 
 ## Cores / ports
 
-- **See `docs/mcr_core_roadmap.md`** for the phased plan (MCR-1 first,
-  SDRAM bring-up, then 91490/Tapper class, then the sound boards and
-  scroll/mono games). All ROMs are already in `roms/`.
+- **See `docs/mcr_core_roadmap.md`** for the phased plan. All ROMs in `roms/`.
+- **MCR-1 (Kick/Kickman/Solar Fox) — Phase A builds, not yet on hardware.**
+  `src/rtl/mcr1.vhd` + `mcr1_console60k/`; bitstreams
+  `bitstreams/console60k_mcr1_{kick,solarfox}.fs` (BSRAM 77/118, setup
+  +0.585 ns, checks clean). To verify on hardware:
+  `openFPGALoader -b tangconsole -f bitstreams/console60k_mcr1_kick.fs`.
+  Open items: hardware bring-up (video/sound/controls); Kick spinner
+  sensitivity + DIP defaults (input_3 = 0xFF placeholder) need tuning; OSD
+  text rotation direction on the rotated MCR-1 monitors is a guess; SD pack
+  switching for MCR-1 needs pack-format-v2 (make_rompack currently MCR-2
+  only). One maintenance debt: the MCR-1 top is a copy of the MCR-2 top -
+  a future refactor to a unified family-ifdef top would remove the
+  duplicated video/USB/SD/OSD infrastructure (deferred to protect the
+  working MCR-2 build during its own hardware validation).
 - **Tang Primer 25K project is stale**: still the line-buffer video path and
   a Satan's Hollow input map. Fine as-is, but it no longer matches the 60K.
 - **Tang Console 138K project is stale**: pre-framebuffer architecture.

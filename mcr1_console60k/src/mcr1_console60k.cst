@@ -1,0 +1,275 @@
+// Physical pin constraints for MCR2 Core on Tang Console 60K
+// (GW5AT-LV60PG484AC1/I0, device version B; Sipeed "NEO dock" + Tang Mega 60K SOM)
+//
+// Pin sources (hardware-verified, 2026-07):
+//   - nand2mario nestang  src/boards/console.cst  (Tang Console 60K)
+//   - nand2mario snestang src/boards/console.cst
+//   - Sipeed TangMega-60K-example cam_dvi/src/NEO_DOCK.cst
+// Local copies in docs/pinrefs/. Entries marked PROVISIONAL sit on balls that
+// are confirmed FPGA-accessible header/PMOD IOs, but their physical header
+// positions have NOT been checked against the schematic yet
+// (https://dl.sipeed.com/shareURL/TANG/Console/02_Schematic).
+
+// On-board 50 MHz oscillator
+IO_LOC "sys_clk" V22;
+IO_PORT "sys_clk" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+// On-board user keys - ACTIVE LOW on this board (pulled up; the top inverts).
+// nand2mario calls AA13 "s0" and AB13 "s1"; Y12 ("s2") is left unused here.
+// These balls share Bank 9 with the DDR3 data group, which forces the bank
+// to 1.5V - so they MUST be LVCMOS15 (per gbatang, which also uses DDR3).
+IO_LOC "s1" AA13;
+IO_PORT "s1" IO_TYPE=LVCMOS15 PULL_MODE=UP DRIVE=OFF BANK_VCCIO=1.5;
+IO_LOC "reset2" AB13;
+IO_PORT "reset2" IO_TYPE=LVCMOS15 PULL_MODE=UP DRIVE=OFF BANK_VCCIO=1.5;
+
+// HDMI TMDS. Constrained exactly as nand2mario's nestang/gbatang do it for
+// this board - each half of every pair given its own IO_LOC, no DRIVE and no
+// BANK_VCCIO override. The paired "G15,G16" syntax placed the pins on the
+// same balls, but matching a known-working design removes the last variable.
+IO_LOC "tmds_clk_p" G15;
+IO_PORT "tmds_clk_p" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_clk_n" G16;
+IO_PORT "tmds_clk_n" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_p[0]" J14;
+IO_PORT "tmds_d_p[0]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_n[0]" H14;
+IO_PORT "tmds_d_n[0]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_p[1]" J15;
+IO_PORT "tmds_d_p[1]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_n[1]" H15;
+IO_PORT "tmds_d_n[1]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_p[2]" K17;
+IO_PORT "tmds_d_p[2]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_n[2]" J17;
+IO_PORT "tmds_d_n[2]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+
+// HDMI enable on the dock, driven high (Sipeed's NEO_DOCK example drives
+// this; leaving it as a weak pull-up input is not necessarily enough).
+IO_LOC "hpd_en" K13;
+IO_PORT "hpd_en" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=12 BANK_VCCIO=3.3;
+
+// PMOD sockets carry the Digilent PmodVGA (plugged directly into both).
+// Desk buttons are retired (USB pad + board keys cover input).
+// PMOD0 IO0..IO7 = V18,V19,G21,G22,F18,E18,C22,B22 (nestang console.cst)
+// PMOD1 IO0..IO7 = W19,W20,F19,F20,E22,D22,E21,D21
+IO_LOC "pmod0_io[0]" V18;
+IO_PORT "pmod0_io[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "pmod0_io[1]" V19;
+IO_PORT "pmod0_io[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "pmod0_io[2]" G21;
+IO_PORT "pmod0_io[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "pmod0_io[3]" G22;
+IO_PORT "pmod0_io[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "pmod0_io[4]" F18;
+IO_PORT "pmod0_io[4]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "pmod0_io[5]" E18;
+IO_PORT "pmod0_io[5]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "pmod0_io[6]" C22;
+IO_PORT "pmod0_io[6]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "pmod0_io[7]" B22;
+IO_PORT "pmod0_io[7]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "pmod1_io[0]" W19;
+IO_PORT "pmod1_io[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "pmod1_io[1]" W20;
+IO_PORT "pmod1_io[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "pmod1_io[2]" F19;
+IO_PORT "pmod1_io[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "pmod1_io[3]" F20;
+IO_PORT "pmod1_io[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "pmod1_io[4]" E22;
+IO_PORT "pmod1_io[4]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "pmod1_io[5]" D22;
+IO_PORT "pmod1_io[5]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "pmod1_io[6]" E21;
+IO_PORT "pmod1_io[6]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "pmod1_io[7]" D21;
+IO_PORT "pmod1_io[7]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+
+// PmodVGA socket-orientation straps (both open by default; try 4 combos):
+IO_LOC "map_rows_n" R14;   // J10-39 (SDRAM1_A2): GND = swap Pmod rows
+IO_PORT "map_rows_n" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC "map_sock_n" P14;   // J10-40 (SDRAM1_A3): GND = swap sockets
+IO_PORT "map_sock_n" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+// PWM audio moved to J10 (PMOD0 now carries video)
+IO_LOC "audio_l" U18;   // J10-35 (SDRAM1_BA1)
+IO_PORT "audio_l" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "audio_r" U17;   // J10-36 (SDRAM1_A10)
+IO_PORT "audio_r" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+// --- Digilent PmodVGA on the J10 ("SDRAM1"/GBA) 2x20 header --------------
+// Ball map verified from Tang_Mega_60K_Console_32001C sheets 4/6/8 (see
+// docs/universal_mcr_shield_spec.md section 4a). Jumper-wire recipe
+// (J10 pin -> PmodVGA pin; the PmodVGA is passive, VCC pins unused):
+//   J10-1..4   -> J1-1..4    R0..R3
+//   J10-5..8   -> J1-7..10   B0..B3
+//   J10-13..16 -> J2-1..4    G0..G3
+//   J10-17     -> J2-7       HS   (carries CSYNC in 15 kHz mode)
+//   J10-18     -> J2-8       VS
+//   J10-12     -> J1-5 (and J2-5)  GND
+//   J10-37     -> GND jumper = 15 kHz mode; open = 31 kHz (VGA monitor)
+IO_LOC "vga_r[0]" R19;   // J10-1  (SDRAM1_D0)
+IO_PORT "vga_r[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "vga_r[1]" P19;   // J10-2  (SDRAM1_D1)
+IO_PORT "vga_r[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "vga_r[2]" U21;   // J10-3  (SDRAM1_D2)
+IO_PORT "vga_r[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "vga_r[3]" T21;   // J10-4  (SDRAM1_D3)
+IO_PORT "vga_r[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "vga_b[0]" R17;   // J10-5  (SDRAM1_D4)
+IO_PORT "vga_b[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "vga_b[1]" P16;   // J10-6  (SDRAM1_D5)
+IO_PORT "vga_b[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "vga_b[2]" T18;   // J10-7  (SDRAM1_D6)
+IO_PORT "vga_b[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "vga_b[3]" R18;   // J10-8  (SDRAM1_D7)
+IO_PORT "vga_b[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "vga_g[0]" W22;   // J10-13 (SDRAM1_D13)
+IO_PORT "vga_g[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "vga_g[1]" W21;   // J10-14 (SDRAM1_D12)
+IO_PORT "vga_g[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "vga_g[2]" P17;   // J10-15 (SDRAM1_D11)
+IO_PORT "vga_g[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "vga_g[3]" N17;   // J10-16 (SDRAM1_D10)
+IO_PORT "vga_g[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "vga_hs" N14;     // J10-17 (SDRAM1_D9)
+IO_PORT "vga_hs" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "vga_vs" N13;     // J10-18 (SDRAM1_D8)
+IO_PORT "vga_vs" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+
+// 15/31 kHz mode strap (active low): J10-37 open = 31 kHz, to GND = 15 kHz
+IO_LOC "mode15_n" R16;   // J10-37 (SDRAM1_A0)
+IO_PORT "mode15_n" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+// Status beacon: FPGA UART TX to BL616 -> USB-C serial (115200 8N1)
+IO_LOC "uart_tx" U15;
+IO_PORT "uart_tx" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+// DDR3/HDMI bring-up debug outputs (probe vs GND, e.g. J10-12)
+IO_LOC "debug_o[0]" Y22;    // J10-21: init_calib_complete (3.3V = trained)
+IO_PORT "debug_o[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "debug_o[1]" Y21;    // J10-22: clk_x1 heartbeat (~1Hz bounce)
+IO_PORT "debug_o[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "debug_o[2]" AB22;   // J10-23: 27MHz ref heartbeat (~0.8Hz bounce)
+IO_PORT "debug_o[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "debug_o[3]" AB21;   // J10-24: ddr_rst (LOW = DDR PLL settled)
+IO_PORT "debug_o[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+// USB-A host port 1 (left; usb_hid_host, 15k pulldowns are on the board)
+IO_LOC "usb1_dp" H13;
+IO_PORT "usb1_dp" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "usb1_dn" G13;
+IO_PORT "usb1_dn" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+// MicroSD card in SPI mode (dat0 = MISO needs its pull-up; dat1/dat2 unused)
+IO_LOC "sd_clk" V15;
+IO_PORT "sd_clk" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "sd_cmd" Y16;
+IO_PORT "sd_cmd" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "sd_dat0" AA15;
+IO_PORT "sd_dat0" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC "sd_dat3" W15;
+IO_PORT "sd_dat3" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+
+// --- Future use (verified balls, not yet in the design) --------------------
+// USB-A host port 2 (right): usb2_dp M15, usb2_dn M16
+// SD 4-bit mode would add: sd_dat1 AB15, sd_dat2 W14
+// Tang SDRAM module in dock slot: see docs/pinrefs/console.cst. NOTE cs_n is
+//   F21 on the Tang Console (was F19 on the Mega 60K dock) - and F19/F20 are
+//   used as PMOD1 buttons above, so drop those buttons if the SDRAM goes in.
+// UART to BL616: rx V14, tx U15 (Y14 = rx via USB-C debugger instead).
+
+// --- On-SOM DDR3 (framebuffer) - verbatim from nand2mario gbatang console60k.cst ---
+IO_LOC "ddr_bank[2]" M6;
+IO_PORT "ddr_bank[2]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_bank[1]" P2;
+IO_PORT "ddr_bank[1]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_bank[0]" P5;
+IO_PORT "ddr_bank[0]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_addr[14]" D1;
+IO_PORT "ddr_addr[14]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_addr[13]" K1;
+IO_PORT "ddr_addr[13]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_addr[12]" K4;
+IO_PORT "ddr_addr[12]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_addr[11]" H3;
+IO_PORT "ddr_addr[11]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_addr[10]" L1;
+IO_PORT "ddr_addr[10]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_addr[9]" H5;
+IO_PORT "ddr_addr[9]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_addr[8]" J5;
+IO_PORT "ddr_addr[8]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_addr[7]" J1;
+IO_PORT "ddr_addr[7]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_addr[6]" G3;
+IO_PORT "ddr_addr[6]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_addr[5]" H2;
+IO_PORT "ddr_addr[5]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_addr[4]" J2;
+IO_PORT "ddr_addr[4]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_addr[3]" J4;
+IO_PORT "ddr_addr[3]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_addr[2]" G2;
+IO_PORT "ddr_addr[2]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_addr[1]" K2;
+IO_PORT "ddr_addr[1]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_addr[0]" M1;
+IO_PORT "ddr_addr[0]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_odt" M2;
+IO_PORT "ddr_odt" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_cke" K6;
+IO_PORT "ddr_cke" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_we" M5;
+IO_PORT "ddr_we" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_cas" L4;
+IO_PORT "ddr_cas" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_ras" L5;
+IO_PORT "ddr_ras" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_cs" P4;
+IO_PORT "ddr_cs" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_reset_n" L6;
+IO_PORT "ddr_reset_n" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_ck" L3,K3;
+IO_PORT "ddr_ck" IO_TYPE=SSTL15D_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_dm[1]" V7;
+IO_PORT "ddr_dm[1]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_dm[0]" AA4;
+IO_PORT "ddr_dm[0]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[15]" Y9;
+IO_PORT "ddr_dq[15]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[14]" AB6;
+IO_PORT "ddr_dq[14]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[13]" W9;
+IO_PORT "ddr_dq[13]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[12]" AB8;
+IO_PORT "ddr_dq[12]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[11]" Y7;
+IO_PORT "ddr_dq[11]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[10]" AB7;
+IO_PORT "ddr_dq[10]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[9]" Y8;
+IO_PORT "ddr_dq[9]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[8]" AA8;
+IO_PORT "ddr_dq[8]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[7]" AB1;
+IO_PORT "ddr_dq[7]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[6]" AB5;
+IO_PORT "ddr_dq[6]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[5]" AB2;
+IO_PORT "ddr_dq[5]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[4]" AA1;
+IO_PORT "ddr_dq[4]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[3]" V4;
+IO_PORT "ddr_dq[3]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[2]" AA5;
+IO_PORT "ddr_dq[2]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[1]" AB3;
+IO_PORT "ddr_dq[1]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dq[0]" Y4;
+IO_PORT "ddr_dq[0]" IO_TYPE=SSTL15_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dqs[1]" V9,V8;
+IO_PORT "ddr_dqs[1]" IO_TYPE=SSTL15D_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;
+IO_LOC "ddr_dqs[0]" Y3,AA3;
+IO_PORT "ddr_dqs[0]" IO_TYPE=SSTL15D_I PULL_MODE=NONE DRIVE=8 SINGLE_RESISTOR=OFF BANK_VCCIO=1.5;

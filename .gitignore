@@ -15,6 +15,7 @@ mcr2_primer25k/src/roms/*.hex
 mcr2_console60k/impl/gwsynthesis/
 mcr2_console60k/impl/temp/
 mcr2_console60k/impl/pnr/
+mcr1_console60k/src/*.hex
 mcr2_console60k/src/*.hex
 mcr2_console138k/impl/
 mcr2_console138k/src/*.hex
@@ -39,3 +40,9 @@ __pycache__/
 # Local MiSTer reference checkouts (nested git repos) - vendor files out
 # of them deliberately, never commit the trees themselves
 refs/
+
+# MCR-1 board build intermediates (mirror the MCR-2 board rules; the
+# flashable bitstream is kept in bitstreams/ instead)
+mcr1_console60k/impl/gwsynthesis/
+mcr1_console60k/impl/temp/
+mcr1_console60k/impl/pnr/

@@ -31,9 +31,28 @@ ROM after platform + core RAM):
   128 KB (Tapper) to 256 KB (Rampage); MiSTer's own `sdram.sv` multi-port
   arcade controller is in each refs/ repo, purpose-built for these cores.
 
-## Phase A — MCR-1 core: Kick, Kickman, Solar Fox
+## Phase A — MCR-1 core: Kick, Kickman, Solar Fox   [IN PROGRESS]
 
-No new hardware; the only new RTL is `mcr1.vhd` itself. Work items:
+**Status 2026-07: the core builds.** `src/rtl/mcr1.vhd` vendored + patched
+(hcnt_out/vcnt_out exposed; three gfx dprams given INIT_FILE and explicit
+we_a/we_b tie-offs, since our SV dpram has no VHDL port defaults). New
+`mcr1_console60k/` board project (MCR-2 top with the core swapped: 15-bit
+CPU ROM + MCR-1 download map, 4-bit RGB truncated to the shared 3:3:3
+pipeline, per-game input mux). merge_roms grew `family`-aware output and
+kick/kickman/solarfox specs; osd.sv parameterized for the 2-game roster.
+Kick: BSRAM 77/118, setup +0.585 ns. Bitstreams in `bitstreams/`
+(console60k_mcr1_kick.fs, console60k_mcr1_solarfox.fs). **Not yet flashed
+/ hardware-verified**; SD pack switching waits on pack-v2 (below), so for
+now each MCR-1 game is a baked bitstream.
+
+Remaining before Phase A is closed:
+- Flash + verify Kick and Solar Fox on hardware (video, sound, controls).
+  Kick's spinner sensitivity and both games' DIP default (input_3 = 0xFF
+  placeholder) will likely need tuning; OSD text rotation direction on the
+  rotated MCR-1 monitors is a guess.
+- Pack format v2 so MCR-1 games load from SD like MCR-2 (see below).
+
+Original work items (mostly done):
 
 1. **Diff the shared support files first** (`refs/Arcade-MCR1_MiSTer/rtl/`
    vs our `src/rtl/`): ours carry local fixes (dpram INIT_FILE ROM mode,

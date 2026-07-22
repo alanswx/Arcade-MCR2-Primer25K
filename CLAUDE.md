@@ -14,6 +14,7 @@ still has the Satan's Hollow map.
 
 | Dir | Board | FPGA | Status |
 |---|---|---|---|
+| `mcr1_console60k/` | Tang Console 60K | GW5AT-LV60PG484 | **Builds** — MCR-1 core (Kick/Kickman/Solar Fox); baked-ROM boot + OSD; shares the 60K platform. SD pack switching pending pack-v2. Not yet hardware-tested |
 | `mcr2_primer25k/` | Tang Primer 25K | GW5A-LV25MG121 | **Working** — Domino Man attract mode over HDMI, 56/56 BSRAM, timing met |
 | `mcr2_console60k/` | Tang Console 60K | GW5AT-LV60PG484 | **Working** — USB HID gamepad; all six games compiled in, OSD menu (Select+Start) switches at runtime via the SD pack; DDR3 framebuffer → 720p HDMI w/ audio; analog VGA on J10 with 15/31 kHz strap |
 | `mcr2_console138k/` | Tang Console 138K | GW5AST-LV138 | Stale pre-fix top; needs same backport as 60K |
@@ -76,10 +77,20 @@ leaves `game_config.vh` alone if the zip is missing, rather than producing a
 half-switched build). Generate the hex tables from the **repo root**:
 
 ```sh
-python3 tools/merge_roms.py domino    # default
-python3 tools/merge_roms.py tron
-python3 tools/merge_roms.py shollow
+python3 tools/merge_roms.py domino    # default (MCR-2)
+python3 tools/merge_roms.py tron      # MCR-2
+python3 tools/merge_roms.py kick      # MCR-1 -> mcr1_console60k/
+python3 tools/merge_roms.py solarfox  # MCR-1
 ```
+
+Each game carries a `family` (`mcr1`/`mcr2`); merge_roms writes that
+family's board dir(s) only, so an MCR-1 build never clobbers the MCR-2
+boards' `game_config.vh` (and vice versa). The MCR-1 core lives in
+`src/rtl/mcr1.vhd` (vendored from Arcade-MCR1_MiSTer, patched: exposes
+`hcnt_out`/`vcnt_out` and INIT_FILE-bakes its gfx dprams, same as
+`mcr2.vhd`). Its download/ROM map differs (CPU 0x0000, sound 0x8000,
+sprites 0x10000, bg 0x18000/0x19000) — the `mcr1_console60k` top and
+merge_roms both follow it.
 
 Writes `rom_*.hex` into every board's `src/` and into `src/rtl/`, **and**
 generates `game_config.vh` in the console board dirs. On the 60K all six

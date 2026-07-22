@@ -53,13 +53,25 @@ def build_slot(regions, game):
 
 
 def main(argv):
-    games = argv[1:] or list(merge_roms.GAME_SPECS)
+    # LAYOUT above is the MCR-2 download map. MCR-1 uses a different one
+    # (CPU 0x0000, sound 0x8000, sprites 0x10000, bg 0x18000/0x19000), so
+    # MCR-1 games cannot share this pack format - that is the pack-format-v2
+    # work (per-slot family + layout) tracked in docs/mcr_core_roadmap.md.
+    # Until then, restrict to the MCR-2 family; MCR-1 boots from baked BSRAM.
+    mcr2_games = [g for g, s in merge_roms.GAME_SPECS.items()
+                  if s.get("family", "mcr2") == "mcr2"]
+    games = argv[1:] or mcr2_games
 
     slots = []
     for game in games:
         if game not in merge_roms.GAME_SPECS:
             raise SystemExit(f"Unknown game '{game}'. "
-                             f"Choices: {', '.join(merge_roms.GAME_SPECS)}")
+                             f"Choices: {', '.join(mcr2_games)}")
+        if merge_roms.GAME_SPECS[game].get("family", "mcr2") != "mcr2":
+            raise SystemExit(
+                f"'{game}' is not an MCR-2 game; the pack format is MCR-2 "
+                "only for now (see docs/mcr_core_roadmap.md, pack v2). "
+                "MCR-1 games boot from baked BSRAM.")
         regions = merge_roms.collect(game, quiet=True)
         if regions is None:
             print(f"  skipping {game} (ROM zip not found)")

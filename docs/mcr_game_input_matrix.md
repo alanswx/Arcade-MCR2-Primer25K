@@ -110,6 +110,23 @@ matrix cannot tell you bit positions. Verified examples:
   "Dogfight Start". The *dedicated* set (`twotiger`) also needs a video-RAM
   address remap at 0xE800 that this core does not implement.
 
+### MCR-1 games (core src/rtl/mcr1.vhd, board mcr1_console60k)
+
+Verified against the MiSTer Arcade-MCR1 top (which matches MAME mcr.cpp).
+All inputs active low; input_3 = the game-option DIP byte.
+
+- **Kick / Kickman** — IP0 = {service, x, x, **kick**(bit4), start2, start1,
+  x, coin1}; IP1 = {4'unused, **spinner[3:0]**} (kicker angle, a 4-bit
+  absolute value — driven from d-pad L/R through `spinner.sv`, low nibble).
+  IP2/IP4 unused. Runs on a rotated monitor (ORIENTATION_SWAP_XY).
+- **Solar Fox** — IP0 = {service, x, x, **fire_a**(bit4), **fire_b**(bit3),
+  **fire_b**(bit2), x, coin1}; IP1 = {up,down,left,right, up,down,left,right}
+  (the 4-way stick mirrored into both nibbles); IP2 = {7'x, **fire_a**(bit0)}.
+  ROT90^FLIP_Y.
+
+DIP note: input_3 is a 0xFF placeholder for both (all option switches off)
+pending a MAME default cross-check on hardware.
+
 Method for new games: `awk '/INPUT_PORTS_START\( <game> \)/,/INPUT_PORTS_END/'
 mcr.cpp` and read the `PORT_BIT` masks. All inputs are active low.
 

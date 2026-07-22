@@ -18,10 +18,24 @@
 // the running game's controls intact.
 //
 // The '>' cursor marks the highlighted row, '*' the running game.
+// Parameterized for the family's roster: MCR-2 keeps the defaults below
+// (6 games); the MCR-1 top passes NUM_GAMES=2 with kick/solarfox names and
+// its own ROT_MASK. Names are 24-char strings; rows >= NUM_GAMES are not
+// drawn and the cursor wraps at NUM_GAMES-1.
 module osd #(
-    parameter [2:0] GAME_DEFAULT = 3'd5   // pack slot order: 0 shollow,
-                                          // 1 tron, 2 wacko, 3 kroozr,
-                                          // 4 twotiger, 5 domino
+    parameter [2:0]   GAME_DEFAULT = 3'd5, // pack slot order: 0 shollow,
+                                           // 1 tron, 2 wacko, 3 kroozr,
+                                           // 4 twotiger, 5 domino
+    parameter [3:0]   NUM_GAMES    = 4'd6,
+    parameter [5:0]   ROT_MASK     = 6'b000011,  // bit i set: game i is
+                                                 // ROT90 (rotate OSD text)
+    parameter [191:0] TITLE = "    MCR2 GAME SELECT    ",
+    parameter [191:0] NAME0 = "   SATANS HOLLOW        ",
+    parameter [191:0] NAME1 = "   TRON                 ",
+    parameter [191:0] NAME2 = "   WACKO                ",
+    parameter [191:0] NAME3 = "   KOZMIK KROOZR        ",
+    parameter [191:0] NAME4 = "   TWO TIGERS           ",
+    parameter [191:0] NAME5 = "   DOMINO MAN           "
 )(
     input             clk,          // clk_sys (40 MHz)
     input             rst,
@@ -159,9 +173,11 @@ always @(posedge clk) begin
             if (ev_combo || ev_b)
                 state <= S_CLOSED;
             else if (ev_up)
-                cursor <= (cursor == 3'd0) ? 3'd5 : cursor - 3'd1;
+                cursor <= (cursor == 3'd0) ? (NUM_GAMES[2:0] - 3'd1)
+                                           : cursor - 3'd1;
             else if (ev_dn)
-                cursor <= (cursor == 3'd5) ? 3'd0 : cursor + 3'd1;
+                cursor <= (cursor == NUM_GAMES[2:0] - 3'd1) ? 3'd0
+                                                            : cursor + 3'd1;
             else if (ev_a) begin
                 load_slot      <= {1'b0, cursor};
                 loader_restart <= 1'b1;
@@ -213,7 +229,7 @@ end
 // ROT0 draws it as-is; ROT90 (Tron/Satan's Hollow) swaps the raster extents
 // and remaps so the text reads upright on the cabinet's rotated monitor.
 // x positions include the nominal 13 px capture offset of the visible area.
-wire rot = (game_id == 3'd0) || (game_id == 3'd1);   // shollow, tron
+wire rot = ROT_MASK[game_id];   // per-game (MCR-2 default: shollow, tron)
 
 wire [9:0] win_w = rot ? 10'd112 : 10'd192;
 wire [9:0] win_h = rot ? 10'd192 : 10'd112;
@@ -238,13 +254,13 @@ wire [6:0] v = rot ? xr[6:0] : yr[6:0];
 // Every row is EXACTLY 24 characters (checked by tools/make_osd_font.py's
 // sibling check in the build notes); shorter literals would left-pad with
 // NULs and shift the text right.
-localparam [191:0] TXT_TITLE   = "    MCR2 GAME SELECT    ";
-localparam [191:0] TXT_G0      = "   SATANS HOLLOW        ";
-localparam [191:0] TXT_G1      = "   TRON                 ";
-localparam [191:0] TXT_G2      = "   WACKO                ";
-localparam [191:0] TXT_G3      = "   KOZMIK KROOZR        ";
-localparam [191:0] TXT_G4      = "   TWO TIGERS           ";
-localparam [191:0] TXT_G5      = "   DOMINO MAN           ";
+localparam [191:0] TXT_TITLE   = TITLE;
+localparam [191:0] TXT_G0      = NAME0;
+localparam [191:0] TXT_G1      = NAME1;
+localparam [191:0] TXT_G2      = NAME2;
+localparam [191:0] TXT_G3      = NAME3;
+localparam [191:0] TXT_G4      = NAME4;
+localparam [191:0] TXT_G5      = NAME5;
 localparam [191:0] TXT_HELP    = "  A:LOAD  B:EXIT        ";
 localparam [191:0] TXT_SDOK    = "  SD CARD: READY        ";
 localparam [191:0] TXT_NOSD    = "  SD CARD: NOT FOUND    ";

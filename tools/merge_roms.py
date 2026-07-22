@@ -11,28 +11,80 @@ import os
 import sys
 import zipfile
 
-# Target directories where the Gowin compiler expects the hex files
-# (INIT_FILE paths resolve relative to the instantiating source file's
-# directory: the per-board tops use bare names next to themselves, and
-# mcr2.vhd's gfx ROMs resolve against src/rtl/).
-OUT_DIRS = [
-    "mcr2_primer25k/src",
-    "mcr2_console60k/src",
-    "mcr2_console138k/src",
-    "src/rtl",
-]
+# Target directories where the Gowin compiler expects the hex files, keyed by
+# game family. INIT_FILE paths resolve relative to the instantiating source
+# file's directory: the per-board tops use bare names next to themselves, and
+# the core .vhd's gfx ROMs resolve against src/rtl/. src/rtl is shared, so its
+# gfx hex reflects the LAST merge_roms run - regenerate before each build (as
+# rebuild_all.sh does). Splitting by family keeps an MCR-1 build from
+# clobbering the MCR-2 boards' game_config.vh and vice versa.
+HEX_DIRS = {
+    "mcr1": ["mcr1_console60k/src", "src/rtl"],
+    "mcr2": ["mcr2_primer25k/src", "mcr2_console60k/src",
+             "mcr2_console138k/src", "src/rtl"],
+}
 
-# Board src dirs whose tops `include the generated game_config.vh
-CONFIG_DIRS = [
-    "mcr2_console60k/src",
-    "mcr2_console138k/src",
-]
+# Board src dirs whose tops `include the generated game_config.vh, by family
+CONFIG_DIRS = {
+    "mcr1": ["mcr1_console60k/src"],
+    "mcr2": ["mcr2_console60k/src", "mcr2_console138k/src"],
+}
 
 # ---------------------------------------------------------------------------
 # Game definitions. ROM member names are the old-MAME set names as found in
 # the merged zips; CRCs were verified against MAME 0.265 for tron.
 # ---------------------------------------------------------------------------
 GAME_SPECS = {
+    # --- MCR-1 (90009 video board; core src/rtl/mcr1.vhd) ------------------
+    # Different download/ROM map from MCR-2: CPU is 4KB ROMs padded to 32KB,
+    # sound 16KB, sprites 32KB (8KB x4), bg two 4KB planes. The per-region
+    # hex output is family-agnostic, so collect() is unchanged; `family`
+    # drives the SD pack layout (tools/make_rompack.py) and picks the MCR-1
+    # top's input map via the define.
+    #
+    # Kick / Kickman: unicycle balloon-kicker. Spinner (kicker angle) on IP1
+    # low nibble, kick button on IP0 bit 4. Kickman = the same board with the
+    # US-region "-ur" CPU ROMs; identical inputs.
+    "kick": dict(
+        family="mcr1",
+        define="GAME_KICK",
+        zip_path="roms/kick.zip",
+        main_files=["1200a-v2.b3", "1300b-v2.b4", "1400c-v2.b5",
+                    "1500d-v2.d4", "1600e-v2.d5", "1700f-v2.d6"],
+        snd_files=["4200-a.a7", "4300-b.a8", "4400-c.a9", "4500-d.a10"],
+        gfx1_1_file="1800g-v2.g4",
+        gfx1_2_file="1900h-v2.g5",
+        gfx2_files=["2600a-v2.1e", "2700b-v2.1d", "2800c-v2.1b", "2900d-v2.1a"],
+        snd_pad_to=16 * 1024,
+    ),
+    "kickman": dict(
+        family="mcr1",
+        define="GAME_KICK",     # identical input map to Kick
+        zip_path="roms/kickman.zip",
+        main_files=["1200-a-ur.b3", "1300-b-ur.b4", "1400-c-ur.b5",
+                    "1500-d-ur.d4", "1600-e-ur.d5", "1700-f-ur.d6"],
+        snd_files=["4200-a.a7", "4300-b.a8", "4400-c.a9", "4500-d.a10"],
+        gfx1_1_file="1800g-v2.g4",
+        gfx1_2_file="1900h-v2.g5",
+        gfx2_files=["2600a-v2.1e", "2700b-v2.1d", "2800c-v2.1b", "2900d-v2.1a"],
+        snd_pad_to=16 * 1024,
+    ),
+    # Solar Fox: 4-way stick (mirrored across IP1), two fire buttons. 28KB
+    # CPU (7x4KB), 12KB->16KB sound, 32KB sprites, two 4KB bg planes.
+    "solarfox": dict(
+        family="mcr1",
+        define="GAME_SOLARFOX",
+        zip_path="roms/solarfox.zip",
+        main_files=["sfcpu.3b", "sfcpu.4b", "sfcpu.5b", "sfcpu.4d",
+                    "sfcpu.5d", "sfcpu.6d", "sfcpu.7d"],
+        snd_files=["sfsnd.7a", "sfsnd.8a", "sfsnd.9a"],
+        gfx1_1_file="sfcpu.4g",
+        gfx1_2_file="sfcpu.5g",
+        gfx2_files=["sfvid.1a", "sfvid.1b", "sfvid.1d", "sfvid.1e"],
+        snd_pad_to=16 * 1024,
+    ),
+
+    # --- MCR-2 (90010 video board; core src/rtl/mcr2.vhd) -----------------
     # Satan's Hollow (MCR2): 48KB CPU, 12KB->16KB sound, 16KB bg, 32KB sprites
     "shollow": dict(
         define="GAME_SHOLLOW",
@@ -113,8 +165,8 @@ GAME_SPECS = {
 }
 
 
-def write_hex(filename, data):
-    for out_dir in OUT_DIRS:
+def write_hex(filename, data, family):
+    for out_dir in HEX_DIRS[family]:
         os.makedirs(out_dir, exist_ok=True)
         path = os.path.join(out_dir, filename)
         with open(path, "w") as f:
@@ -174,8 +226,11 @@ def collect(game, quiet=False):
 
 
 def write_game_config(game):
-    define = GAME_SPECS[game]["define"]
-    for out_dir in CONFIG_DIRS:
+    spec = GAME_SPECS[game]
+    define = spec["define"]
+    family = spec.get("family", "mcr2")
+    for out_dir in CONFIG_DIRS[family]:
+        os.makedirs(out_dir, exist_ok=True)
         path = os.path.join(out_dir, "game_config.vh")
         with open(path, "w") as f:
             f.write("// Auto-generated by tools/merge_roms.py -- do not edit.\n")
@@ -199,11 +254,12 @@ if __name__ == "__main__":
         print("ROM generation FAILED - game_config.vh left unchanged.")
         sys.exit(1)
 
-    write_hex("rom_main.hex", r["main"])
-    write_hex("rom_snd.hex", r["snd"])
-    write_hex("rom_cpu.hex", r["main"] + r["snd"])
-    write_hex("rom_gfx1_1.hex", r["gfx1_1"])
-    write_hex("rom_gfx1_2.hex", r["gfx1_2"])
-    write_hex("rom_gfx2.hex", r["gfx2"])
+    family = GAME_SPECS[game].get("family", "mcr2")
+    write_hex("rom_main.hex", r["main"], family)
+    write_hex("rom_snd.hex", r["snd"], family)
+    write_hex("rom_cpu.hex", r["main"] + r["snd"], family)
+    write_hex("rom_gfx1_1.hex", r["gfx1_1"], family)
+    write_hex("rom_gfx1_2.hex", r["gfx1_2"], family)
+    write_hex("rom_gfx2.hex", r["gfx2"], family)
     print("ROM generation and copying complete!")
     write_game_config(game)
