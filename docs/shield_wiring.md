@@ -86,11 +86,11 @@ flowchart LR
       LD["IN_LOAD_N (pin26)"]
       DAT["IN_DATA (pin27)"]
     end
-    U1["U1 74AHC165\nIP0: coins/start/tilt/svc/btn"] -->|QH→SER| U2["U2 74AHC165\nIP1: P1 stick / dial"]
-    U2 -->|QH→SER| U3["U3 74AHC165\nIP2: P2 / trackball-Y / gas"]
-    U3 -->|QH→SER| U4["U4 74AHC165\nIP4: aux / P3 stick"]
-    U4 -->|QH→SER| U6["U6 74AHC165\nSW1 game DIPs (IP3)"]
-    U6 -->|QH→SER| U7["U7 74AHC165\nSW2 system DIPs"]
+    U1["U1 74AHC165<br/>IP0: coins/start/tilt/svc/btn"] -->|QH→SER| U2["U2 74AHC165<br/>IP1: P1 stick / dial"]
+    U2 -->|QH→SER| U3["U3 74AHC165<br/>IP2: P2 / trackball-Y / gas"]
+    U3 -->|QH→SER| U4["U4 74AHC165<br/>IP4: aux / P3 stick"]
+    U4 -->|QH→SER| U6["U6 74AHC165<br/>SW1 game DIPs (IP3)"]
+    U6 -->|QH→SER| U7["U7 74AHC165<br/>SW2 system DIPs"]
     CLK -->|CP, bussed to all| U1
     LD -->|PL̄, bussed to all| U1
     U7 -->|QH| DAT
@@ -182,14 +182,14 @@ the ADC (analog), selected per cabinet:
 
 ```mermaid
 flowchart LR
-    J4["J4 / J5 data lines\n(dial data OR pot wiper)"]
-    JMP{"MODE jumper\nper channel"}
-    P165["→ 74AHC165 pad\n(digital dial games)"]
-    ADC["ADC (SPI)\npots → 8-bit"]
+    J4["J4 / J5 data lines<br/>(dial data OR pot wiper)"]
+    JMP{"MODE jumper<br/>per channel"}
+    P165["→ 74AHC165 pad<br/>(digital dial games)"]
+    ADC["ADC (SPI)<br/>pots → 8-bit"]
     J4 --> JMP
     JMP -->|DIGITAL| P165
     JMP -->|ANALOG| ADC
-    ADC -->|SPI: SCLK/MOSI/MISO/CS on\n3 spare J10 pins + 1| FPGA["Tang 60K"]
+    ADC -->|SPI: SCLK/MOSI/MISO/CS on<br/>3 spare J10 pins + 1| FPGA["Tang 60K"]
     P165 --> FPGA
 ```
 
