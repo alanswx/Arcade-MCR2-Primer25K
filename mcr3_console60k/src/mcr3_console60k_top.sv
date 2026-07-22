@@ -284,16 +284,30 @@ reg        p1_req_r = 1'b0, p1_we_r = 1'b0;
 reg [23:1] p1_a_r = 23'd0;
 reg [1:0]  p1_ds_r = 2'b00;
 reg [15:0] p1_d_r = 16'd0;
+// DIAGNOSTIC (temporary): count sprite writes issued + flag if sp_q ever reads
+// something other than all-ones. Surfaced in the beacon to localize the
+// still-white-boxes fault (write not issued? not landing? read stuck?).
+reg [23:0] spw_count = 24'd0;
+reg        spq_nonff = 1'b0;
 always @(posedge clk_sdram) begin
     dl_wr_s1 <= dl_wr;
     dl_wr_s2 <= dl_wr_s1;
     if (dl_wr_s1 && !dl_wr_s2) begin        // rising edge of a new dl byte
-        p1_a_r   <= {7'b0, dl_addr[14:0], dl_addr[16]};
-        p1_ds_r  <= {dl_addr[15], ~dl_addr[15]};
-        p1_d_r   <= {dl_data, dl_data};
-        p1_we_r  <= 1'b1;
-        p1_req_r <= ~p1_req_r;              // launch (toggle req vs ack)
+        p1_a_r    <= {7'b0, dl_addr[14:0], dl_addr[16]};
+        p1_ds_r   <= {dl_addr[15], ~dl_addr[15]};
+        p1_d_r    <= {dl_data, dl_data};
+        p1_we_r   <= 1'b1;
+        p1_req_r  <= ~p1_req_r;             // launch (toggle req vs ack)
+        spw_count <= spw_count + 24'd1;
     end
+    if (sp_q != 32'hFFFFFFFF) spq_nonff <= 1'b1;
+end
+// sample the clk_sdram diagnostics into clk_sys for the beacon (synchronous)
+reg [23:0] spw_count_s = 0;
+reg        spq_nonff_s = 0;
+always @(posedge clk_sys) begin
+    spw_count_s <= spw_count;
+    spq_nonff_s <= spq_nonff;
 end
 
 sdram_gw #(.RFRSH_CYCLES(10'd600)) sdram (
@@ -732,12 +746,16 @@ uart_beacon #(.CLK_HZ(40_000_000), .BAUD(115200)) beacon (
     .clk(clk_sys),
     .calib(fb_calib),
     .ddr_rst(fb_ddr_rst),
-    .cnt_x({hb_h[24:21], hb_x1[25:14]}),
-    .cnt_q(hb_27[24:17]),
+    // DIAGNOSTIC: x = sprite writes issued (spw_count[23:8]); after a full
+    //   128 KB load expect x ~= 0x0200 (131072>>8). x0000 = no writes issued.
+    // q = spw_count low bits (extra resolution while loading).
+    // L bit7 = spq_nonff: sp_q was seen != all-ones at least once (=1 means the
+    //   sprite read returned real data; =0 means it is stuck all-ones).
+    .cnt_x(spw_count_s[23:8]),
+    .cnt_q(spw_count_s[7:0]),
     .aux({game_id, cap_delay}),   // dXX: high 3 bits = running game_id
-    // L high nibble: {heartbeat, heartbeat, usb_typ} - usb_typ = 3 means a
-    // gamepad is enumerated (0 = nothing on USB); low nibble = SD/loader.
-    .aux2({hb_h[24:23], usb_typ_s2, sd_ready, sd_err, ldr_done, ldr_error}),
+    // L bit7 = spq_nonff (sprite read saw non-FF data); rest = SD/loader flags.
+    .aux2({spq_nonff_s, hb_h[23], usb_typ_s2, sd_ready, sd_err, ldr_done, ldr_error}),
     .txd(uart_tx)
 );
 
