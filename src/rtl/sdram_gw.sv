@@ -304,7 +304,12 @@ always @(posedge clk) begin
 				SDRAM_BA <= {1'b1, addr_latch_next[1][23]};
 				addr_last2[next_port[1]] <= addr_latch_next[1][23:2];
 				if (next_port[1] == PORT_REQ) begin
-					{ oe_latch[1], we_latch[1] } <= { ~port1_we, port1_we };
+					// NOTE: this is the port2 (bank 2,3) path - it must gate on
+					// port2_we, not port1_we. The original had port1_we here (a
+					// copy-paste from the bank 0,1 block); harmless until port2
+					// is actually used for writes (MCR-3 sprite load), where it
+					// made every port2 write silently decode as a read.
+					{ oe_latch[1], we_latch[1] } <= { ~port2_we, port2_we };
 					ds[1] <= port2_ds;
 					din_latch[1] <= port2_d;
 					port2_state <= port2_req;

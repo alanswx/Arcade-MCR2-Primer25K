@@ -260,14 +260,17 @@ wire [14:0] core_sp_addr;   // core -> SDRAM: 15-bit sprite word address
 wire [31:0] sp_q;           // SDRAM -> core: 32-bit (4-plane) sprite word
 
 // The loader streams the 128 KB sprite blob as dl_addr[16:0]/dl_data on
-// clk_sys. Route it to SDRAM port1 with MiSTer's exact sprite write-swizzle
-// (Arcade-MCR3.sv): the 8 concatenated planes merge into 32-bit words so a
-// linear sp_addr read returns the 4 planes for that pixel column.
-//   port1_a  = {7'b0, dl_addr[14:0], dl_addr[16]}   (16-bit word address)
-//   port1_ds = {dl_addr[15], ~dl_addr[15]}          (which byte of the word)
-//   port1_d  = {dl_data, dl_data}                   (ds picks the lane)
+// clk_sys. Route it to SDRAM *port2* with MiSTer's exact sprite write-swizzle
+// (Arcade-MCR3.sv). port2 is REQUIRED (not port1): the sp read port lives in
+// the controller's bank 2,3 group, and only port2 writes into that same group
+// - a port1 write lands in banks 0,1 and the sprite read never sees it (the
+// "solid white boxes" symptom). The swizzle merges the 8 concatenated planes
+// into 32-bit words so a linear sp_addr read returns the 4 planes per column:
+//   port2_a  = {7'b0, dl_addr[14:0], dl_addr[16]}   (16-bit word address)
+//   port2_ds = {dl_addr[15], ~dl_addr[15]}          (which byte of the word)
+//   port2_d  = {dl_data, dl_data}                   (ds picks the lane)
 // clk_sdram = 2x clk_sys (synchronous), so dl_wr is a 2-cycle pulse here;
-// rising-edge detect turns each into exactly one port1 write. The SD byte rate
+// rising-edge detect turns each into exactly one port2 write. The SD byte rate
 // is << clk_sdram, so a write always finishes before the next dl_wr.
 wire        p1_ack;
 reg         sdram_rst_s1 = 1'b1, sdram_rst = 1'b1;
@@ -307,14 +310,15 @@ sdram_gw #(.RFRSH_CYCLES(10'd600)) sdram (
     .SDRAM_CLK(O_sdram_clk),
     .init_n(~sdram_rst),
     .clk(clk_sdram),
-    // port1: sprite download write (from the SD loader)
-    .port1_req(p1_req_r), .port1_ack(p1_ack), .port1_we(p1_we_r),
-    .port1_a(p1_a_r), .port1_ds(p1_ds_r), .port1_d(p1_d_r), .port1_q(),
+    // port1 unused (its bank group does not reach the sprite read)
+    .port1_req(1'b0), .port1_ack(), .port1_we(1'b0),
+    .port1_a(23'd0), .port1_ds(2'b00), .port1_d(16'd0), .port1_q(),
     .cpu1_addr(23'd0), .cpu1_q(),
     .cpu2_addr(23'd0), .cpu2_q(),
     .cpu3_addr(23'd0), .cpu3_q(),
-    .port2_req(1'b0), .port2_ack(), .port2_we(1'b0),
-    .port2_a(23'd0), .port2_ds(2'b00), .port2_d(16'd0), .port2_q(),
+    // port2: sprite download write (shares the sp read's bank 2,3 group)
+    .port2_req(p1_req_r), .port2_ack(p1_ack), .port2_we(p1_we_r),
+    .port2_a(p1_a_r), .port2_ds(p1_ds_r), .port2_d(p1_d_r), .port2_q(),
     // sprite read to the core: 15-bit word addr -> 32-bit plane word
     .sp_addr({7'd0, core_sp_addr}), .sp_q(sp_q)
 );
