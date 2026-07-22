@@ -195,6 +195,14 @@ budget exists anymore. See the Shield PCB section.
 ## Cores / ports
 
 - **See `docs/mcr_core_roadmap.md`** for the phased plan. All ROMs in `roms/`.
+- **SDRAM memtest — Phase B started, not yet on hardware.** Standalone
+  test of the Tang SDRAM module (J9) using the exact controller MCR-3 will
+  use (`src/rtl/sdram_gw.sv`, Gowin-adapted from MiSTer MCR-3). Flash
+  `bitstreams/console60k_sdram_memtest.fs` with the module plugged in:
+  J10 LED debug_o[0]=PASS, [1]=DONE, [2]=FAIL, [3]=heartbeat; UART beacon
+  shows progress then c1/c0. FSM Verilator-validated. If reads fail, first
+  suspect the SDRAM_CLK phase (swap D0/D1 on the ODDR in sdram_gw.sv).
+  This gates all MCR-3/Scroll/Mono cores.
 - **MCR-1 (Kick/Kickman/Solar Fox) — Phase A builds, not yet on hardware.**
   `src/rtl/mcr1.vhd` + `mcr1_console60k/`; bitstreams
   `bitstreams/console60k_mcr1_{kick,solarfox}.fs` (BSRAM 77/118, setup

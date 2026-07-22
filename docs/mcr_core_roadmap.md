@@ -79,18 +79,36 @@ between the three, prefs persist. **This phase is deliberately first: it
 forces all the multi-family packaging decisions while the RTL risk is
 near zero.**
 
-## Phase B — SDRAM module bring-up (the gate for all MCR-3)
+## Phase B — SDRAM module bring-up (the gate for all MCR-3)   [STARTED]
 
-1. Tang SDRAM module into **J9** (pins from `docs/pinrefs/` nand2mario
-   csts; CS = F21 on the Console). Retire the F19/F20 PMOD buttons.
-2. Vendor MiSTer's `sdram.sv` (from `refs/Arcade-MCR3_MiSTer/rtl/` — the
-   multi-port arcade variant with dedicated sprite/CPU ports).
-3. `rom_loader` v3: slots larger than 128 KB stream through the existing
-   `dl_` path into SDRAM (MiSTer's `rom_download` wiring in
-   `Arcade-MCR3.sv` is the template). Pack v2 already carries per-slot
-   sizes.
-4. Standalone validation before any core uses it: memtest pattern
-   bitstream, pass/fail in the UART beacon and on the shield LEDs.
+**Standalone memtest built (2026-07), not yet hardware-run.** The exact
+controller MCR-3 will use is vendored and Gowin-adapted:
+`src/rtl/sdram_gw.sv` = MiSTer MCR-3 `sdram.sv` with the Altera altddio_out
+SDRAM_CLK forwarder replaced by a Gowin ODDR and the `inout reg SDRAM_DQ`
+rewritten as an explicit tristate (Gowin rejects procedural drives of an
+inout). A 100 MHz PLL (`gowin_pll_sdram.v`) feeds it (refresh timing sized
+for ~100 MHz). `src/rtl/sdram_memtest.sv` sweeps 1M words (write pattern ->
+read back -> compare) on port1; the diag top
+`mcr2_console60k/diag/sdram_memtest_top.sv` reports on the four J10 LEDs
+(PASS/DONE/FAIL/heartbeat) and the UART beacon. SDRAM pins from
+`docs/pinrefs/snestang_console.cst` (verified nand2mario mapping, CS=F21).
+Bitstream: `bitstreams/console60k_sdram_memtest.fs` (builds clean, timing
+met at 100 MHz). FSM logic is Verilator-validated (`make -C sim memtest`:
+clean memory PASSes, an injected bad word is caught at the right address).
+
+**On hardware:** plug the Tang SDRAM module into J9, flash the memtest,
+watch the LEDs. DONE+PASS = the module, pins and clock phase are good. If
+reads fail (DONE+FAIL), the likely culprit is the SDRAM_CLK phase - swap
+D0/D1 on the ODDR in `sdram_gw.sv` (the one documented phase knob) and
+rebuild.
+
+Remaining Phase B:
+1. Run the memtest on real hardware; tune the clock phase if needed.
+2. Retire the F19/F20 PMOD buttons (they overlap nothing here, but will
+   when the module is wired into a real board build).
+3. `rom_loader` v3: stream slots >128 KB through the `dl_` path into SDRAM
+   (MiSTer's `rom_download` wiring in `Arcade-MCR3.sv` is the template).
+   Pack v2 carries per-slot sizes.
 
 ## Phase C — MCR-3 core: Tapper, Timber, Journey, Discs of Tron
 
