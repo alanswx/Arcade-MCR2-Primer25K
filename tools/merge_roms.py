@@ -22,12 +22,14 @@ HEX_DIRS = {
     "mcr1": ["mcr1_console60k/src", "src/rtl"],
     "mcr2": ["mcr2_primer25k/src", "mcr2_console60k/src",
              "mcr2_console138k/src", "src/rtl"],
+    "mcr3": ["mcr3_console60k/src", "src/rtl"],
 }
 
 # Board src dirs whose tops `include the generated game_config.vh, by family
 CONFIG_DIRS = {
     "mcr1": ["mcr1_console60k/src"],
     "mcr2": ["mcr2_console60k/src", "mcr2_console138k/src"],
+    "mcr3": ["mcr3_console60k/src"],
 }
 
 # ---------------------------------------------------------------------------
@@ -81,6 +83,35 @@ GAME_SPECS = {
         gfx1_1_file="sfcpu.4g",
         gfx1_2_file="sfcpu.5g",
         gfx2_files=["sfvid.1a", "sfvid.1b", "sfvid.1d", "sfvid.1e"],
+        snd_pad_to=16 * 1024,
+    ),
+
+    # --- MCR-3 (91490 video board; core src/rtl/mcr3.vhd) -----------------
+    # Tapper (main set): 56KB CPU (4 ROMs, last is 8KB), 16KB sound (4x4KB),
+    # 32KB bg (2x16KB planes), 128KB sprites (8x16KB -> SDRAM, not baked).
+    # bg plane order follows the MRA: bg_1(6f) -> gfx1_1, bg_0(5f) -> gfx1_2.
+    "tapper": dict(
+        family="mcr3",
+        define="GAME_TAPPER",
+        zip_path="roms/tapper.zip",
+        main_files=["tapper_c.p.u._pg_0_1c_1-27-84.1c",
+                    "tapper_c.p.u._pg_1_2c_1-27-84.2c",
+                    "tapper_c.p.u._pg_2_3c_1-27-84.3c",
+                    "tapper_c.p.u._pg_3_4c_1-27-84.4c"],
+        snd_files=["tapper_sound_snd_0_a7_12-7-83.a7",
+                   "tapper_sound_snd_1_a8_12-7-83.a8",
+                   "tapper_sound_snd_2_a9_12-7-83.a9",
+                   "tapper_sound_snd_3_a10_12-7-83.a10"],
+        gfx1_1_file="tapper_c.p.u._bg_1_6f_12-7-83.6f",
+        gfx1_2_file="tapper_c.p.u._bg_0_5f_12-7-83.5f",
+        gfx2_files=["tapper_video_fg_1_a7_12-7-83.a7",  # MRA sprite order
+                    "tapper_video_fg_0_a8_12-7-83.a8",
+                    "tapper_video_fg_3_a5_12-7-83.a5",
+                    "tapper_video_fg_2_a6_12-7-83.a6",
+                    "tapper_video_fg_5_a3_12-7-83.a3",
+                    "tapper_video_fg_4_a4_12-7-83.a4",
+                    "tapper_video_fg_7_a1_12-7-83.a1",
+                    "tapper_video_fg_6_a2_12-7-83.a2"],
         snd_pad_to=16 * 1024,
     ),
 

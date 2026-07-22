@@ -46,3 +46,9 @@ refs/
 mcr1_console60k/impl/gwsynthesis/
 mcr1_console60k/impl/temp/
 mcr1_console60k/impl/pnr/
+
+# MCR-3 board build intermediates + generated hex (mirror the other boards)
+mcr3_console60k/src/*.hex
+mcr3_console60k/impl/gwsynthesis/
+mcr3_console60k/impl/temp/
+mcr3_console60k/impl/pnr/
