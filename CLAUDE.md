@@ -226,8 +226,11 @@ there; the IDE JSON equivalents are the CPU/MSPI/SSPI/etc. booleans).
   update) this before starting anything; per-doc "open items" sections feed
   into it.
 
-- `handoff_v3_video_and_domino.md` — **most current**: video pipeline
-  deep-dive, Domino POC, ROM-fit table for all MCR games, paths forward.
+- `handoff_v4_60k_multicore.md` — **most current handoff**: the 60K
+  multi-core platform state, family porting status, hardware-verification
+  table, and immediate next steps. Start here.
+- `handoff_v3_video_and_domino.md` — historical: the 25K HDMI pipeline
+  deep-dive + Domino POC (its "paths forward" are all done).
 - `handoff_v2_design.md` — SDRAM/V2 plan, shield electrical spec, MCR
   J2/J3/J4/J5 connector pinouts.
 - `board_comparison_and_bom.md` — board comparison + shield BOM.

@@ -12,6 +12,9 @@ on-screen menu, with ROMs loaded from a microSD card.
 | Tang Primer 25K (GW5A-25) | Domino Man over HDMI (single game per build, BSRAM-limited) |
 | Tang Console 138K (GW5AST-138) | Stale — needs the 60K backport |
 
+New here? Read [handoff_v4_60k_multicore.md](handoff_v4_60k_multicore.md)
+for the current platform state and family runway.
+
 Deeper docs: build gotchas and architecture notes in [CLAUDE.md](CLAUDE.md),
 open issues in [TODO.md](TODO.md), bench hookup in
 [docs/bench_wiring.md](docs/bench_wiring.md), cabinet shield spec in

@@ -1,5 +1,10 @@
 # MCR Port V3 Handoff — HDMI Video Bring-up & Domino Man POC
 
+> **Historical.** This documents the Tang Primer 25K HDMI bring-up and the
+> Domino Man proof-of-concept. Every "path forward" it lists (SDRAM
+> framebuffer, USB, bigger boards) is now done on the 60K. For the current
+> state see **`handoff_v4_60k_multicore.md`**.
+
 Status as of this session. Covers the working Tang Primer 25K build, the video
 pipeline and its known limits, the Domino Man proof-of-concept (background tiles
 enabled), the MCR ROM-fit analysis, and the recommended paths forward.
