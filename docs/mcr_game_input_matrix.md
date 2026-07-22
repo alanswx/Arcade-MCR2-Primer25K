@@ -1,10 +1,18 @@
 # MCR Game Input Matrix (machine-readable)
 
 Transcribed from `docs/MCR_Master_Pinouts.pdf` ("Ultimate MCR Master Pinout
-Matrix"). This is the source of truth for what each cabinet connector pin
-does per game. The physical wiring is identical across MCR-1/2/3 — only the
-in-game meaning changes, so all game-specific mapping is done in the FPGA
-top-level, never on the shield PCB.
+Matrix"). This is the source of truth for **what each cabinet input does per
+game** (the function map). Only the in-game meaning changes across MCR-1/2/3;
+all game-specific mapping is done in the FPGA top, never on the shield PCB.
+
+> **For the PHYSICAL connectors** — real board numbering, pin counts, and
+> pitch (only J1 power is .156"; J2 video / J3 audio / J4–J6 inputs are
+> .100" MTA) — use **`docs/MCR Series Pinouts.html`** and
+> **`docs/shield_wiring.md`**. The `J2/J3/J4/J5` labels in the tables below
+> are the PDF's **normalized cabinet-function** scheme, which is NOT the
+> physical connector numbering (see the "Connector-numbering caution" near
+> the end). E.g. the PDF's "J2 = P1 controls / J3 = coins" are physically on
+> the SSIO board's **J4** (IP0+IP1).
 
 Legend: `-` = N/C for that game. "No J5" (MCR-1 and most MCR-2 cabinets have
 no J5 harness) is also shown as `-`.
@@ -166,12 +174,22 @@ Answers to the obvious questions:
   game we've extracted leaves it unused (0xFF); it is sound-board config,
   not game options. We model it as constant 0xFF.
 
-**Connector-numbering caution:** the tables at the top of this file (from
-the master pinout PDF) group pins by *cabinet function* using J2/J3/J4/J5
-labels that do **not** match the SSIO board's own J4/J5/J6 numbering above
-— e.g. the PDF's "J3 coin door" pins land on SSIO J4 1-8 (IP0). Treat the
-PDF's function names as truth and its J-labels as this project's harness
-grouping; when reading MAME or original schematics, use the SSIO numbers.
+**Connector-numbering caution — three schemes, don't mix them:**
+
+1. **Normalized cabinet-function** (this file's top tables + the master
+   PDF): J2 = P1 controls, J3 = coins, J4 = Opt X, J5 = Opt Y. A *logical*
+   grouping, not physical connectors.
+2. **Real SSIO/CPU board** (`MCR Series Pinouts.html`, and MAME's `ssio:IP*`
+   comments): J1 = power (.156" MTA), J2 = video, J3 = audio, **J4 = IP0
+   (pins 1-8) + IP1 (10-18)**, J5 = IP2, J6 = IP4 (all .100" MTA). **Use
+   this for the shield's physical connectors and footprints.**
+3. **Real MCR3Mono board** (MAME `mcr3.cpp`): IP0/IP1 = J2, IP2 = J3,
+   IP4 = J4 — different again (mono is a later single board).
+
+So e.g. the PDF's "J3 coin door" and "J2 P1 controls" are physically on the
+SSIO board's **J4** (IP0+IP1). Treat the PDF's function names as truth and
+its J-labels as logical only; for hardware, use scheme 2 (SSIO) — that is
+what `docs/shield_wiring.md` builds the connector footprints from.
 
 ## Known gaps (not covered by the matrix PDF)
 

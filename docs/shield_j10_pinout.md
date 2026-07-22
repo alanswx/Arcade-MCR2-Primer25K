@@ -4,7 +4,9 @@
 the draft net plan in `universal_mcr_shield_spec.md` §4b (which spread
 video onto the PMOD sockets); the shield now connects to **J10 only** —
 video, audio and all controls on one 40-pin header, both PMOD sockets left
-free. Electrical details (optos, DAC values, buck) stay in the spec §3.
+free. Electrical details (input-conditioning pads, DAC, buck) stay in the
+spec §3; the cabinet-side connectors, pitches and chip wiring are in
+**`docs/shield_wiring.md`**.
 
 Ground rules:
 
@@ -142,10 +144,15 @@ pulse, bits arrive **U7 first, input H first** — U7.H, U7.G … U7.A, U6.H
 
 ### 3b. '165 inputs ↔ conditioning ↔ MCR harness, device by device
 
-> **This section is the MCR-2 wiring example.** For a board meant to run
-> the whole family (3-player Rampage, the mono/scroll connector remapping),
-> allocate the chain by SSIO input port instead — see §6(a). The electrical
-> pad and control lines below are unchanged either way.
+> **This section is the MCR-2 wiring example, and the J-labels below use the
+> normalized *cabinet-function* numbering** (J2=P1, J3=coins, J4=Opt X,
+> J5=Opt Y) from the master matrix — **not** the physical board connectors.
+> The real connectors, their **pitch** (only J1 power is .156"; J2–J6 are
+> .100" MTA) and the actual board numbering (J4=IP0+IP1, J5=IP2, J6=IP4) are
+> in **`docs/shield_wiring.md`** — use that for footprints. For a board meant
+> to run the whole family (3-player Rampage, the mono/scroll connector
+> remapping), allocate the chain by SSIO input port — see §6(a). The
+> electrical pad and control lines below are unchanged either way.
 
 '165 input pins: A=11, B=12, C=13, D=14, E=3, F=4, G=5, H=6. Each
 harness line gets the same passive pad — this is the whole input stage:
@@ -343,8 +350,9 @@ populate 2× '595 (§4), and treat J9 as reserved-mandatory.
 1. Populate video DAC + sync buffer + audio + straps + LEDs only. Flash
    any current `bitstreams/console60k_*.fs` → full game on the cabinet
    monitor (15 kHz strap closed), sound, LEDs. No new gateware needed.
-2. Populate optos + '165/'595 chains once the expander RTL lands
-   (tracked in TODO.md; pins are frozen here, so no board spin).
+2. Populate the input-conditioning pads + '165/'595 chains once the
+   expander RTL lands (tracked in TODO.md; pins are frozen here, so no
+   board spin).
 3. USB pad and HDMI work throughout as the reference path.
 
 ## 8. Change control

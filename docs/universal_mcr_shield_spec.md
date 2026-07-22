@@ -48,15 +48,24 @@ layout). Game-function reference: `docs/mcr_game_input_matrix.md`.
 
 ## 1. Design principles
 
-1. **Expose the original MCR connectors** (J2, J3, J4, J5, Video, power,
-   audio) so the cabinet harness plugs straight in — no JAMMA adaptation.
+1. **Expose the original MCR connectors** so the cabinet harness plugs
+   straight in — no JAMMA adaptation. The real board connectors, their
+   pin counts and **pitch** (J1 power = .156" MTA; J2 video, J3 audio,
+   J4/J5/J6 inputs = .100" MTA) and per-pin functions are in
+   **`docs/shield_wiring.md`** / **`docs/MCR Series Pinouts.html`**. (The
+   matrix doc uses a normalized *cabinet-function* J-numbering; the
+   physical connectors use the real board numbering — see shield_wiring §1.)
 2. **No game-specific wiring.** Connector wiring is identical across all
-   MCR games (see the matrix doc); every game-specific *interpretation*
-   lives in the FPGA top. One shield serves every core. (DIP switches
-   select which game/core runs — they do not rewire anything.)
-3. **Parallel, opto-isolated cabinet I/O.** Every cabinet input gets its own
-   opto-isolated FPGA pin. Only the DIP switches are read serially, to keep
-   the J9 expansion slot free.
+   MCR games; every game-specific *interpretation* lives in the FPGA top.
+   One shield serves every core. (DIP switches select which game/core runs
+   — they do not rewire anything.)
+3. **Serial cabinet I/O — no opto isolation (revised 2026-07).** Cabinet
+   inputs run into 74AHC165 shift registers (3 FPGA pins), outputs via a
+   74HC595 chain (4 pins); see `shield_wiring.md`. The 74AHC165's 5.5 V-
+   tolerant inputs take the 5 V harness directly, so there is no separate
+   level shifter. The earlier plan (parallel, opto-isolated) was dropped:
+   the shield's buck is non-isolated, so the optos never bought isolation,
+   and parallel I/O would forfeit the J9 SDRAM slot (§2).
 
 ## 2. FPGA signal budget
 
@@ -189,8 +198,8 @@ Video/audio on the PMODs (shield covers both sockets):
 
 **Note:** the current `mcr2_console60k.cst` desk-test assignments (buttons
 on PMOD1, provisional cab video) intentionally differ; re-pin to this table
-when shield rev A is finalized — cabinet inputs then arrive via J10 optos
-and the USB pad, so PMOD desk buttons retire.
+when shield rev A is finalized — cabinet inputs then arrive via the J10
+74AHC165 chain and the USB pad, so PMOD desk buttons retire.
 
 +12 V from the cabinet enters the shield at a screw terminal → buck → 5 V.
 
