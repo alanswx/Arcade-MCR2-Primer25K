@@ -119,6 +119,13 @@ The shield's "live" pins are exactly what today's bitstreams drive, so the
 board does video/audio the day it's soldered; the control-chain pins are
 reserved and wait on the expander RTL (a small, planned module — `TODO.md`).
 
+**Interface style (settled 2026-07-22): the cabinet harness plugs into the
+shield** — the shield presents the original MCR connectors, the operator
+plugs the existing harness in and picks the game in the OSD, and the FPGA
+maps every pin per game (no rewiring). Not a mechanical board-swap. Rev A
+targets the SSIO-family connectors (most games); MCR3Mono is a later
+variant (spec §0).
+
 ## 7. Immediate next steps
 
 1. **Flash the SDRAM memtest** with the module in J9; watch the J10 LEDs

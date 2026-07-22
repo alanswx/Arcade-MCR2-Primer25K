@@ -9,6 +9,29 @@ layout). Game-function reference: `docs/mcr_game_input_matrix.md`.
 
 ## 0. Product decisions (2026-07, settled)
 
+- **Interface style: the cabinet harness plugs into the shield** (settled
+  2026-07-22). The shield presents the original MCR cabinet connectors as
+  headers; the operator plugs the existing harness in and picks the game in
+  the OSD — no rewiring, because the FPGA maps every pin to its in-game
+  function per the selected game (the '165 chain delivers raw bits; the core
+  interprets them). This is explicitly **NOT** a mechanical board-swap
+  (the shield does not plug into the cabinet's original PCB-edge socket in
+  place of the game board — that would mean replicating each board's edge
+  connector and is out of scope). Consequences for the PCB:
+  - Route the actual MCR **mating connectors** in the right positions so an
+    original harness seats pin-for-pin.
+  - **Rev A targets the SSIO-family connectors** (MCR-1/2 + the SSIO MCR-3
+    games: Tapper, Timber, Journey, Discs of Tron, Spy Hunter, Crater) —
+    the large majority, and the set documented in the master pinout matrix.
+  - **MCR3Mono (Rampage, Sarge, Max RPM, Power Drive, Star Guards) is a
+    later variant**: those games are absent from the master pinout matrix
+    and the mono board routes IP ports to different connectors (IP0/IP1→J2,
+    IP2→J3, IP4→J4, 3 players) — verify against the mono board schematic
+    before adding its connectors.
+  - Special controls (dials/spinners/wheels/pedals) arrive as **8-bit
+    digital** on the Opt X/Opt Y connectors; the shield reads them straight
+    from a cabinet that still has its MCR control PCB. A bare-pot hookup
+    would need an ADC the shield does not provide (silkscreen note).
 - **Dual-use, not cabinet-only.** Keep the HDMI path alongside the analog
   cabinet output: it is the primary debug surface, and retrofit-LCD cabinets
   are a real installed base. Consequence: the DDR3 framebuffer stays, so

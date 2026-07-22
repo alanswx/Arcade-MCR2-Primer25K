@@ -8,6 +8,13 @@ free. Electrical details (optos, DAC values, buck) stay in the spec §3.
 
 Ground rules:
 
+- **Interface style (settled): the cabinet harness plugs into the shield.**
+  The shield presents the original MCR mating connectors; the operator plugs
+  the existing harness in and selects the game in the OSD — the FPGA maps
+  every pin to its in-game function, so nothing is rewired. This is NOT a
+  mechanical board-swap. **Rev A targets the SSIO-family connectors** (most
+  games); MCR3Mono is a later variant. Full rationale + the connector
+  target in `universal_mcr_shield_spec.md` §0.
 - **Every J10 signal is 3.3 V LVCMOS (banks 6/7/8). Nothing is 5 V
   tolerant.** Cabinet-side 5 V never reaches a header pin: inputs land on
   the shield's **74AHC165s** (5.5 V-tolerant inputs — §2), never on the
