@@ -369,12 +369,14 @@ reg [7:0] input_3;
 reg [7:0] input_4;
 
 always @(*) begin
-    // IP0: bit0 coin1, 1 coin2, 2 start1, 3 start2, 4 button(pour), 5 tilt,
-    //      6 service, 7 test  (J4 pin order); active low
-    input_0 = ~{ 1'b0, m_service, 1'b0, m_pour, m_start2, m_start1, 1'b0, m_coin1 };
-    input_1 = ~{ 4'b0000, m_down, m_up, m_right, m_left };   // P1 4-way
-    input_2 = 8'hFF;   // P2 (tied off for now)
-    input_3 = 8'hFF;   // game-option DIPs (placeholder - verify vs MAME)
+    // Verified against MiSTer Arcade-MCR3 (mod_tapper) + Tapper MRA:
+    //   IP0 = ~{service,3'b0,start2,start1,1'b0,coin1}
+    //   IP1 = IP2 = ~{3'b0,pour,up,down,left,right}   (controls read from BOTH)
+    //   IP3 = DIP = 0xFF (MRA default "FF 00" -> sw[0]=FF: upright, demo snd on)
+    input_0 = ~{ m_service, 3'b000, m_start2, m_start1, 1'b0, m_coin1 };
+    input_1 = ~{ 3'b000, m_pour, m_up, m_down, m_left, m_right };
+    input_2 = ~{ 3'b000, m_pour, m_up, m_down, m_left, m_right };
+    input_3 = 8'hFF;   // sw[0] per MRA default
     input_4 = 8'hFF;
 end
 
