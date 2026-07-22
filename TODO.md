@@ -195,6 +195,14 @@ budget exists anymore. See the Shield PCB section.
 ## Cores / ports
 
 - **See `docs/mcr_core_roadmap.md`** for the phased plan. All ROMs in `roms/`.
+- **MCR-3 core (Tapper/Timber/Journey/DoT) — Phase C, core ready, board
+  gated on SDRAM.** `src/rtl/mcr3.vhd` vendored + platform-adapted (builds
+  once wired). Board integration is fully designed in
+  `docs/mcr_core_roadmap.md` (memory split: CPU/sound/bg baked BRAM,
+  sprites->SDRAM, Journey tape->DDR3; the exact MiSTer sprite interleave;
+  40/100 MHz CDC; SD->SDRAM sprite loader). Do the board build AFTER the
+  Phase B memtest passes on hardware - Tapper/Timber first (plain SSIO
+  sound). Journey needs a DDR3 wave port; DoT ships without speech.
 - **SDRAM memtest — Phase B started, not yet on hardware.** Standalone
   test of the Tang SDRAM module (J9) using the exact controller MCR-3 will
   use (`src/rtl/sdram_gw.sv`, Gowin-adapted from MiSTer MCR-3). Flash

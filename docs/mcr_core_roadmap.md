@@ -110,23 +110,82 @@ Remaining Phase B:
    (MiSTer's `rom_download` wiring in `Arcade-MCR3.sv` is the template).
    Pack v2 carries per-slot sizes.
 
-## Phase C — MCR-3 core: Tapper, Timber, Journey, Discs of Tron
+## Phase C — MCR-3 core: Tapper, Timber, Journey, Discs of Tron   [CORE READY]
 
-1. Vendor `mcr3.vhd`; SSIO is shared and already ours. Wire CPU/sound/
-   sprite ROM ports to `sdram.sv` exactly as `Arcade-MCR3.sv` does
-   (56 KB CPU, 16 KB sound, 128 KB sprites), bg via `dl_` into BRAM.
-2. `wave_sound.sv` + samples in SDRAM for Journey's tape music (the
-   MiSTer `/sound/journey.zip` sample pack becomes an extra pack-v2
-   region streamed at boot). DoT ships without speech initially — same
-   as MiSTer; real Squawk & Talk (6809 + TMS5200) is a separate stretch
-   goal we can schedule if it stings.
-3. Input maps per game from mcr.cpp (Tapper 2×2-way sticks + buttons;
-   Timber 2 sticks; Journey stick+button; DoT stick + aim spinner on
-   the Opt X bus — the shield's U3 '165 already carries it).
-4. IP0 bit 4 is now "coin 3"-ish per game — re-verify all IP0 bits; the
-   91490 games moved some system buttons.
+**The core is vendored and platform-adapted (2026-07):** `src/rtl/mcr3.vhd`
+patched exactly like mcr1/mcr2 (bg dprams get INIT_FILE + explicit
+we_a/we_b/d/q tie-offs; palette we_b/d_b; `hcntout` already exposed
+upstream). It uses only our shared entities (dpram/gen_ram/mcr_sound_board/
+T80s/z80ctc) and has no Altera constructs, so it will build once wired into
+a board. The remaining work is board integration, which is **SDRAM-gated**
+- do it after the Phase B memtest passes on hardware. The design below is
+settled so that integration is mechanical, not exploratory.
 
-Deliverable: `console60k_mcr3.fs`, 4 games, marquee titles done.
+### Memory split (verified against Arcade-MCR3.sv + the core's ports)
+
+| ROM | Size | Home | How |
+|---|---|---|---|
+| CPU program | ~56-64 KB | **BRAM** (baked, INIT_FILE) | like mcr1/2; `cpu_rom_addr`[15:0] |
+| Sound (SSIO) | 16 KB | **BRAM** (baked) | `snd_rom_addr`[13:0] |
+| Background | 32 KB (2x16 KB) | **BRAM** (baked, INIT_FILE done) | `dl_`/INIT_FILE, dl[15:14]=00/01 |
+| **Sprites** | **128 KB** | **SDRAM** (loaded from SD at boot) | `sp_addr`[14:0] -> `sp_q`[31:0], 32-bit |
+| **Journey tape samples** | ~MBs | **DDR3** (the framebuffer's) | `wave_sound.sv` + a DDR3 read port |
+
+Only sprites (+ Journey's tape) need external memory; everything else bakes
+into BRAM, so no-SD-card boots the game logic + background (sprites blank
+until loaded). Budget ~ Tron's 94/118 + the sprite path.
+
+### Sprite SDRAM layout (copy MiSTer's interleave EXACTLY)
+
+The 4 sprite planes are merged into 32-bit words so one `sp_addr` read
+returns all four. When loading the 128 KB sprite region (byte offset
+`o` = 0..0x1FFFF within the region) into SDRAM via a write port, use
+MiSTer's remap verbatim (`Arcade-MCR3.sv`):
+- word address = `{o[18:17], o[14:0], o[16]}`
+- byte select   = `{o[15], ~o[15]}`  (which half of the 16-bit word)
+- write data    = `{byte, byte}`
+Reads: `sp_addr` -> `sp_q[31:0]`; the core's `sp_mux_roms`/`sp_hflip`
+logic already picks the right plane byte.
+
+### Clocking / CDC (the one real design choice)
+
+Core runs at 40 MHz (`clock_40`); the SDRAM controller (`sdram_gw`) is
+proven at 100 MHz (Phase B memtest). `sp_addr` (40 MHz) -> `sp_q`
+(100 MHz) crosses domains. Two options:
+1. **Match MiSTer**: SDRAM at 100 MHz, register `sp_addr` into the SDRAM
+   clock; the core holds `sp_addr` stable across several 40 MHz cycles so
+   the 100 MHz controller samples it cleanly (this is what MiSTer relies
+   on). Preferred - reuses the exact memtest clock.
+2. SDRAM at 80 MHz = 2x40 from one PLL (synchronous 1:2, no metastability),
+   but re-size `RFRSH_CYCLES` for 80 MHz and re-verify sprite-fetch
+   bandwidth. Fallback if option 1's CDC misbehaves.
+
+### Boot sprite loader (SD -> SDRAM)
+
+New `sprite_loader`: read the sprite region from the SD pack, apply the
+remap above, write `sdram_gw` port1 (toggle handshake, ~128 KB ~= a few
+ms). Runs before the core leaves reset. **No baked fallback** - SDRAM is
+volatile, so MCR-3 needs the SD card for sprites (CPU/bg still baked, so
+the game boots and shows background even cardless). This is "pack v2"
+territory: the pack carries a per-slot sprite region + family tag.
+
+### Games, in order
+
+1. **Tapper, Timber** first - plain SSIO sound, sprites-in-SDRAM only, no
+   wave/speech. The clean first targets.
+2. **Journey** - needs the DDR3 wave-sample port (`wave_sound.sv`; tape
+   music lives in DDRAM per the MiSTer top). Set `mcr2p5=1` (Journey is
+   MCR-2.5 hardware).
+3. **Discs of Tron** - ships without speech initially (Squawk & Talk =
+   6809 + TMS5200 was never implemented upstream); `video_hflip=1`.
+
+Core I/O to drive: `video_hflip`/`video_vflip` = 0 upright (DoT hflip=1),
+`output_4` open, `mcr2p5` = 1 only for Journey. Input maps per game from
+mcr.cpp (Tapper 2x2-way sticks + pour/serve; Timber 2 sticks + chop;
+Journey stick + button; DoT stick + aim spinner on the Opt X bus).
+
+Deliverable: `console60k_mcr3.fs`, Tapper + Timber first; the marquee
+titles.
 
 ## Phase D — MCR3Scroll: Spy Hunter, Crater Raider, Turbo Tag
 
