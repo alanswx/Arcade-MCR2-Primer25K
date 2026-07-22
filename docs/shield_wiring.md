@@ -17,9 +17,26 @@ should be confirmed against a real MCR harness before ordering connectors.
 
 ## 1. Cabinet connectors (what the harness plugs into)
 
-All MCR connectors are the **0.156" (3.96 mm) pitch** family (Molex
-09-xx / .156 edge fingers). Present these on the shield edge, keyed, in
-the standard MCR positions:
+**Two pitches, and only one is ours.** MCR used both .156" and .100"/ribbon
+connectors, but they served different jobs:
+
+- **.100" (2.54 mm) / ribbon — board-to-board interconnect, NOT ours.** The
+  original MCR boardset (CPU + video-gen + SSIO/sound) was stacked and
+  interconnected with small-pitch ribbon/SIPP connectors (the MCR FAQ:
+  "very early MCR games used SIPP-style sockets for the J1 and J2 connectors
+  with solid core wire ribbon cables interconnecting the boards"). **The
+  shield replaces the entire boardset, so those interconnects simply don't
+  exist for us** — there are no separate boards to link.
+- **.156" (3.96 mm) — the cabinet harness, which is what the shield
+  presents.** Player controls, coins, video, power, audio: the connectors
+  the cabinet's own wiring plugs into.
+
+So for the shield, target the **.156" cabinet-harness connectors** below.
+(Pitch on a couple of individual connectors — the video connector
+especially — is worth confirming against a real harness or the specific
+game's schematic before ordering; see the caveat after the table.)
+
+Present these on the shield edge, keyed, in the standard MCR positions:
 
 | Ref | Connector | Pins | Carries | Footprint (verify vs harness) |
 |---|---|---:|---|---|
@@ -37,6 +54,15 @@ Notes:
 - **Key pins** (J4-8, Video-7) are the connector's mechanical key — leave
   the shield position blank/plugged to match.
 - Grounds (J2-13, J4-10, Video-2/4/6) all tie to the shield star ground.
+- **Pitch caveat — verify before ordering.** The controls/coin/power
+  connectors are .156"; the **video connector's pitch (.156 vs .100) is the
+  one to double-check** against the target game's harness, as it varied. The
+  dial games' 8-bit Opt-X bus arrives on J4 as **parallel digital**, not
+  raw quadrature — the cabinet's *Angle Encoder Board* converts the knob's
+  quadrature to parallel position data before J4/J6 (MCR FAQ). So the '165
+  reads it directly, **provided the cabinet still has its Angle Encoder
+  Board**; a bare encoder would need quadrature decode in the FPGA
+  (`spinner.sv`) instead.
 
 Pin-by-pin functions (from the master matrix), abbreviated to the standard
 MCR function — the FPGA re-interprets per game:
