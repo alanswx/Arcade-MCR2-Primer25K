@@ -169,6 +169,16 @@ budget exists anymore. See the Shield PCB section.
 
 ## Shield PCB
 
+- **Cabinet-side wiring is documented**: `docs/shield_wiring.md` (connector
+  footprints, 74AHC165/74HC595 chain diagrams, sync buffer/DAC, BOM). The
+  analog/ADC question is settled: **only Spy Hunter and Max RPM need an
+  ADC** (potentiometer steering/pedals; every other control is digital or
+  an optical encoder the FPGA decodes). Plan is a populate-optional SPI ADC
+  (ADS7830/MCP3208) with a per-channel MODE jumper routing Opt X/Opt Y to
+  the '165 (digital) or the ADC (analog), set per cabinet. FPGA reads the
+  ADC over spare J10 pins.
+
+
 - **5 V delivery route unverified** — J10 pin 11 exposes +5 V but sits behind
   the dock's OR-ing/OVP chain; do not back-feed it until traced. USB-C is the
   known-good path.

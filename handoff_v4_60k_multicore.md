@@ -145,6 +145,7 @@ variant (spec §0).
 - `TODO.md` — every open item, consolidated.
 - `docs/mcr_core_roadmap.md` — the MCR family porting plan (Phases A–E).
 - `docs/shield_j10_pinout.md` — the frozen 40-pin shield header.
+- `docs/shield_wiring.md` — MCR connector footprints + chip wiring + ADC.
 - `docs/universal_mcr_shield_spec.md` — shield electrical spec.
 - `docs/mcr_game_input_matrix.md` — per-game harness + SSIO bit maps.
 - `docs/bench_wiring.md` — what the current bitstream drives on J10.

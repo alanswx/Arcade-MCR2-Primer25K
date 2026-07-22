@@ -244,6 +244,10 @@ there; the IDE JSON equivalents are the CPU/MSPI/SSPI/etc. booleans).
   the shield PCB** (video + controls on one header via 74HC165/595
   chains); the authority over spec §4b for any pin question. Change this
   file first if a pin must move.
+- `docs/shield_wiring.md` — **cabinet-side build companion**: the MCR
+  connector footprints the harness plugs into, chip-wiring diagrams
+  (74AHC165 input chain, 74HC595 output chain, sync buffer, DAC), the
+  analog/ADC design (Spy Hunter + Max RPM only, switchable), and the BOM.
 - `docs/mcr_game_input_matrix.md` — machine-readable transcription of the
   pinout matrix PDF + MAME-verified SSIO bit maps; use it when porting a
   new game.
