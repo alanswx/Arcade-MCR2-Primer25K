@@ -9,9 +9,9 @@ free. Electrical details (optos, DAC values, buck) stay in the spec §3.
 Ground rules:
 
 - **Every J10 signal is 3.3 V LVCMOS (banks 6/7/8). Nothing is 5 V
-  tolerant.** Cabinet-side 5 V never touches a header pin: inputs go
-  through optos into the shift registers, sync/video leave through
-  buffers/ladders.
+  tolerant.** Cabinet-side 5 V never reaches a header pin: inputs land on
+  the shield's **74AHC165s** (5.5 V-tolerant inputs — §2), never on the
+  FPGA directly; sync/video leave through buffers/ladders.
 - Pins marked **live** are driven by the bitstreams shipping today —
   video/audio works on the board the day it is soldered, with no gateware
   change. Pins marked **reserved** are allocated here and safe to route
