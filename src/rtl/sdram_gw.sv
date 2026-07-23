@@ -76,7 +76,17 @@ module sdram_gw #(
 	output reg [31:0] port2_q,
 	
 	input      [23:2] sp_addr,
-	output reg [31:0] sp_q
+	output reg [31:0] sp_q,
+
+	// DIAGNOSTIC (temporary): counts AUTO_REFRESH commands actually issued.
+	// At 80 MHz / RFRSH_CYCLES=600 expect ~133k/s (wraps ~3x/s). Frozen at 0
+	// means the refresh branch never fires. Leave unconnected when unused.
+	output reg [15:0] dbg_refresh = 16'd0,
+	// DIAGNOSTIC: refresh-demand cycles lost to each blocker (RAS1 slots where
+	// need_refresh was pending): blk1 = bank2/3 port busy, blk0 = port[0]
+	// we/oe_latch gate. Whichever runs ~130k/s is what starves refresh.
+	output reg [15:0] dbg_blk0 = 16'd0,
+	output reg [15:0] dbg_blk1 = 16'd0
 );
 
 assign SDRAM_CKE = 1;
@@ -170,6 +180,7 @@ localparam CMD_LOAD_MODE       = 3'b000;
 
 reg [2:0]  sd_cmd;   // current command sent to sd ram
 reg [15:0] sd_din;
+reg [15:0] sp_q_lo;  // first burst beat of an sp read, committed at READ1b
 // drive control signals according to current command
 assign SDRAM_nRAS = sd_cmd[2];
 assign SDRAM_nCAS = sd_cmd[1];
@@ -299,6 +310,7 @@ always @(posedge clk) begin
 			port[1] <= next_port[1];
 
 			if (next_port[1] != PORT_NONE) begin
+				if (need_refresh) dbg_blk1 <= dbg_blk1 + 1'd1;
 				sd_cmd <= CMD_ACTIVE;
 				SDRAM_A <= addr_latch_next[1][22:10];
 				SDRAM_BA <= {1'b1, addr_latch_next[1][23]};
@@ -322,6 +334,10 @@ always @(posedge clk) begin
 				refresh <= 1'b1;
 				refresh_cnt <= 0;
 				sd_cmd <= CMD_AUTO_REFRESH;
+				dbg_refresh <= dbg_refresh + 1'd1;
+			end
+			else if (need_refresh) begin
+				dbg_blk0 <= dbg_blk0 + 1'd1;
 			end
 		end
 
@@ -359,10 +375,17 @@ always @(posedge clk) begin
 			endcase;
 		end
 
+		// sp has no ack handshake, so its consumer (a slower synchronous
+		// clock) can sample sp_q on ANY cycle - including between the two
+		// burst beats. Upstream wrote sp_q[15:0] here and [31:16] one cycle
+		// later at READ1b, leaving a window where sp_q is half new word,
+		// half stale. Buffer the first beat and commit all 32 bits in one
+		// cycle at READ1b instead. (port2_q keeps the two-stage update: its
+		// consumers wait for port2_ack, which rises with the second beat.)
 		if(t == STATE_READ1 && oe_latch[1]) begin
 			case(port[1])
 				PORT_REQ:	port2_q[15:0] <= sd_din;
-				PORT_SP :    sp_q[15:0] <= sd_din;
+				PORT_SP :    sp_q_lo <= sd_din;
 				default: ;
 			endcase;
 		end
@@ -370,7 +393,7 @@ always @(posedge clk) begin
 		if(t == STATE_READ1b && oe_latch[1]) begin
 			case(port[1])
 				PORT_REQ: begin port2_q[31:16] <= sd_din; port2_ack <= port2_req; end
-				PORT_SP : begin    sp_q[31:16] <= sd_din; end
+				PORT_SP : begin    sp_q <= { sd_din, sp_q_lo }; end
 				default: ;
 			endcase;
 		end

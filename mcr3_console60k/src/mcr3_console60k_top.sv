@@ -273,6 +273,8 @@ wire [31:0] sp_q;           // SDRAM -> core: 32-bit (4-plane) sprite word
 // rising-edge detect turns each into exactly one port2 write. The SD byte rate
 // is << clk_sdram, so a write always finishes before the next dl_wr.
 wire        p1_ack;
+wire [15:0] dbg_refresh;    // DIAGNOSTIC: AUTO_REFRESH issue counter
+wire [15:0] dbg_blk0, dbg_blk1; // DIAGNOSTIC: refresh-demand blocker counters
 reg         sdram_rst_s1 = 1'b1, sdram_rst = 1'b1;
 always @(posedge clk_sdram) begin
     sdram_rst_s1 <= core_reset_raw;
@@ -280,6 +282,9 @@ always @(posedge clk_sdram) begin
 end
 
 reg        dl_wr_s1 = 1'b0, dl_wr_s2 = 1'b0;
+reg        ldrp_s1 = 1'b0, ldrp_s2 = 1'b0;  // ldr_done sync for the pattern writer
+reg [4:0]  pat_step = 5'd31;                // 31 = idle, 0..15 = write steps
+reg [4:0]  pat_wait = 5'd0;
 reg        p1_req_r = 1'b0, p1_we_r = 1'b0;
 reg [23:1] p1_a_r = 23'd0;
 reg [1:0]  p1_ds_r = 2'b00;
@@ -300,14 +305,192 @@ always @(posedge clk_sdram) begin
         p1_req_r  <= ~p1_req_r;             // launch (toggle req vs ack)
         spw_count <= spw_count + 24'd1;
     end
+    // DIAGNOSTIC (temporary): after each load finishes, overwrite the top 4
+    // sprite words (0x7FC0-0x7FC3) with a known byte pattern via the same
+    // port2 path (16 single-byte writes, one per lane). The repeating dump
+    // below watches these cells: correct at first read then rotting = decay
+    // (refresh dead); wrong from the start = the write path itself.
+    // Expected readback: word k = {C3,C2,C1,C0} + k*04040404 (k = 0..3).
+    ldrp_s1 <= ldr_done;
+    ldrp_s2 <= ldrp_s1;
+    if (ldrp_s1 && !ldrp_s2) begin
+        pat_step <= 5'd0;
+        pat_wait <= 5'd0;
+    end else if (pat_step != 5'd31) begin
+        pat_wait <= pat_wait + 5'd1;
+        if (&pat_wait) begin                // one write every 32 cycles
+            p1_a_r   <= {7'b0, (15'h7FC0 | {13'd0, pat_step[3:2]}), pat_step[1]};
+            p1_ds_r  <= pat_step[0] ? 2'b10 : 2'b01;
+            p1_d_r   <= {2{8'hC0 | {4'd0, pat_step[3:0]}}};
+            p1_we_r  <= 1'b1;
+            p1_req_r <= ~p1_req_r;
+            pat_step <= (pat_step == 5'd15) ? 5'd31 : pat_step + 5'd1;
+        end
+    end
     if (sp_q != 32'hFFFFFFFF) spq_nonff <= 1'b1;
 end
+// DIAGNOSTIC (temporary): after each completed load, sweep all 32K sprite
+// words back through the sp read port with a 64-cycle dwell per address
+// (~8x the worst-case read latency, so the value sampled is unquestionably
+// settled) and classify each word. Separates bad *storage* (a DQM byte lane
+// never written -> a lane counter pegs near 32768) from bad *fetch timing*
+// during rendering (all counters ~0 here, yet stripes on screen). Sprites
+// render garbage for the ~26 ms the sweep steals the sp address bus.
+// Byte lanes: sp_q bytes 0,2 came through DQML; bytes 1,3 through DQMH.
+reg        ldrd_s1 = 1'b0, ldrd_s2 = 1'b0;
+reg        chk_active = 1'b0, chk_done = 1'b0;
+reg [14:0] chk_addr = 15'd0;
+reg [5:0]  chk_dwell = 6'd0;
+reg [15:0] chk_allff = 16'd0;  // words entirely 0xFFFFFFFF
+reg [15:0] chk_loff  = 16'd0;  // words with both DQML lanes 0xFF (not all-FF)
+reg [15:0] chk_hoff  = 16'd0;  // words with both DQMH lanes 0xFF (not all-FF)
+always @(posedge clk_sdram) begin
+    ldrd_s1 <= ldr_done;
+    ldrd_s2 <= ldrd_s1;
+    if (ldrd_s1 && !ldrd_s2) begin
+        // EXPERIMENT: sweep DISABLED (it pre-reads every address, which is
+        // itself suspected of killing rows). chk_done still set so the dump
+        // triggers; counters stay 0.
+        chk_done <= 1'b1;
+    end else if (chk_active) begin
+        chk_dwell <= chk_dwell + 6'd1;
+        if (chk_dwell == 6'd63) begin
+            if (sp_q == 32'hFFFFFFFF)
+                chk_allff <= chk_allff + 16'd1;
+            else if (sp_q[7:0] == 8'hFF && sp_q[23:16] == 8'hFF)
+                chk_loff <= chk_loff + 16'd1;
+            else if (sp_q[15:8] == 8'hFF && sp_q[31:24] == 8'hFF)
+                chk_hoff <= chk_hoff + 16'd1;
+            chk_addr <= chk_addr + 15'd1;
+            if (chk_addr == 15'h7FFF) begin
+                chk_active <= 1'b0;
+                chk_done   <= 1'b1;
+            end
+        end
+    end
+end
+
 // sample the clk_sdram diagnostics into clk_sys for the beacon (synchronous)
 reg [23:0] spw_count_s = 0;
 reg        spq_nonff_s = 0;
+reg [15:0] chk_allff_s = 0, chk_loff_s = 0, chk_hoff_s = 0;
+reg        chk_done_s = 0;
+reg [15:0] dbg_refresh_s = 0, dbg_blk0_s = 0, dbg_blk1_s = 0;
 always @(posedge clk_sys) begin
     spw_count_s <= spw_count;
     spq_nonff_s <= spq_nonff;
+    chk_allff_s <= chk_allff;
+    chk_loff_s  <= chk_loff;
+    chk_hoff_s  <= chk_hoff;
+    chk_done_s  <= chk_done;
+    dbg_refresh_s <= dbg_refresh;
+    dbg_blk0_s <= dbg_blk0;
+    dbg_blk1_s <= dbg_blk1;
+end
+
+// DIAGNOSTIC (temporary): repeating windowed dump of the sprite SDRAM over
+// the UART. Every ~1.7 s it prints a snapshot: a "========" marker line then
+// 136 words as 8-hex + LF (~106 ms of TX, beacon muxed away meanwhile):
+//   lines   0..63  = sprite words 0x0000-0x003F  (read all-FF in dump #1)
+//   lines  64..127 = sprite words 0x2780-0x27BF  (the dump-#1 survivor region)
+//   lines 128..135 = sprite words 0x7FC0-0x7FC7  (0x7FC0-3 = the known
+//                    pattern the post-load writer plants; expect
+//                    C3C2C1C0 C7C6C5C4 CBCAC9C8 CFCECDCC)
+// Watching the SAME cells across snapshots separates decay (refresh dead:
+// correct -> rot) from a broken write path (wrong from snapshot #1).
+localparam DUMP_DIV = 40_000_000 / 115200;   // 347, same baud as the beacon
+function [7:0] dump_hex(input [3:0] n);
+    dump_hex = (n < 10) ? (8'h30 + n) : (8'h41 + n - 10);
+endfunction
+reg        dump_active = 1'b0, dump_started = 1'b0;
+reg        dump_sampling = 1'b0;
+reg        dump_marker = 1'b0;
+// EXPERIMENT layout: 20 probe cells x 3 lines each (read1, dummy-address
+// read to force a fresh activation, read2 of the same cell ~1.7 ms later).
+// Probes 0..15 = 0x2780+j (loaded data), 16..19 = 0x7FC0+k (planted
+// pattern). read1 == expected but read2 == FF proves the array holds data
+// until it is ACCESSED - a destructive-read / refresh-collision fault, not
+// leak decay. Both reads FF from the start = the write path never landed it.
+reg [4:0]  dump_j  = 5'd0;      // which probe cell (0..19)
+reg [1:0]  dump_ph = 2'd0;      // 0 = read1, 1 = dummy, 2 = read2
+reg [23:0] dump_gap = 24'd0;    // ~0.42 s between snapshots
+reg [5:0]  dump_wait = 6'd0;
+reg [8:0]  dump_baud = 9'd0;
+reg [3:0]  dump_bit  = 4'd0;    // 0 = start, 1..8 = data, 9 = stop
+reg [3:0]  dump_char = 4'd0;    // 0..7 = hex nibbles MSB-first, 8 = LF
+reg [31:0] dump_word = 32'd0;
+reg        dump_txd = 1'b1;
+wire [14:0] dump_base = (dump_j < 5'd16) ? (15'h2780 + {10'd0, dump_j})
+                                         : (15'h7FC0 + {13'd0, dump_j[1:0]});
+wire [14:0] dump_a = (dump_ph == 2'd1) ? (15'h0400 + {10'd0, dump_j}) : dump_base;
+wire [7:0] dump_cur = (dump_char == 4'd8) ? 8'h0A :
+                      dump_marker         ? "="   : dump_hex(dump_word[31:28]);
+always @(posedge clk_sys) begin
+    if (!dump_active) begin
+        dump_txd <= 1'b1;
+        dump_gap <= dump_gap + 24'd1;
+        // first snapshot right after the load completes, then periodic
+        if ((!dump_started && chk_done_s) || (dump_started && (&dump_gap))) begin
+            dump_started  <= 1'b1;
+            dump_active   <= 1'b1;
+            dump_marker   <= 1'b1;      // snapshot starts with a marker line
+            dump_sampling <= 1'b0;
+            dump_j        <= 5'd0;
+            dump_ph       <= 2'd0;
+            dump_char     <= 4'd0;
+            dump_bit      <= 4'd0;
+            dump_baud     <= 9'd0;
+        end
+    end else if (dump_sampling) begin
+        // hold the address for 64 clk_sys cycles (>> read latency), then latch
+        dump_txd  <= 1'b1;
+        dump_wait <= dump_wait + 6'd1;
+        if (dump_wait == 6'd63) begin
+            dump_word     <= sp_q;
+            dump_sampling <= 1'b0;
+            dump_char     <= 4'd0;
+            dump_bit      <= 4'd0;
+            dump_baud     <= 9'd0;
+        end
+    end else begin
+        if (dump_baud == DUMP_DIV - 1) begin
+            dump_baud <= 9'd0;
+            if (dump_bit == 4'd9) begin
+                dump_bit <= 4'd0;
+                if (dump_char == 4'd8) begin        // line finished
+                    if (dump_marker) begin
+                        dump_marker   <= 1'b0;      // marker done -> first read
+                        dump_sampling <= 1'b1;
+                        dump_wait     <= 6'd0;
+                    end else if (dump_j == 5'd19 && dump_ph == 2'd2) begin
+                        dump_active <= 1'b0;        // snapshot done
+                        dump_gap    <= 24'd0;
+                    end else begin
+                        if (dump_ph == 2'd2) begin
+                            dump_ph <= 2'd0;
+                            dump_j  <= dump_j + 5'd1;
+                        end else begin
+                            dump_ph <= dump_ph + 2'd1;
+                        end
+                        dump_sampling <= 1'b1;
+                        dump_wait     <= 6'd0;
+                    end
+                end else begin
+                    dump_char <= dump_char + 4'd1;
+                    dump_word <= dump_word << 4;
+                end
+            end else begin
+                dump_bit <= dump_bit + 4'd1;
+            end
+        end else begin
+            dump_baud <= dump_baud + 9'd1;
+        end
+        case (dump_bit)
+            4'd0:    dump_txd <= 1'b0;
+            4'd9:    dump_txd <= 1'b1;
+            default: dump_txd <= dump_cur[dump_bit - 4'd1];
+        endcase
+    end
 end
 
 sdram_gw #(.RFRSH_CYCLES(10'd600)) sdram (
@@ -334,7 +517,14 @@ sdram_gw #(.RFRSH_CYCLES(10'd600)) sdram (
     .port2_req(p1_req_r), .port2_ack(p1_ack), .port2_we(p1_we_r),
     .port2_a(p1_a_r), .port2_ds(p1_ds_r), .port2_d(p1_d_r), .port2_q(),
     // sprite read to the core: 15-bit word addr -> 32-bit plane word
-    .sp_addr({7'd0, core_sp_addr}), .sp_q(sp_q)
+    // (the post-load sweep, then the one-shot dump, borrow the address bus)
+    // EXPERIMENT: core disconnected from the sp bus entirely - ONLY the
+    // dump's probe reads may touch the array (core sees frozen sp_q; sprites
+    // will render wrong on screen for this build, expected).
+    .sp_addr({7'd0, dump_a}),
+    .sp_q(sp_q),
+    .dbg_refresh(dbg_refresh),
+    .dbg_blk0(dbg_blk0), .dbg_blk1(dbg_blk1)
 );
 
 wire [15:0] rom_addr;
@@ -742,21 +932,45 @@ assign debug_o = {fb_ddr_rst, hb_27[24], hb_x1[25], fb_calib};
 // Same vitals over USB-C serial (BL616 bridges the U15 UART), for debugging
 // with the case closed: frozen x____ across lines = pixel clock dead,
 // frozen q__ = 27MHz chain dead, c0/r1 = DDR3 never trained.
+// DIAGNOSTIC beacon x/q mux: until a sweep has completed, x/q show the
+// sprite write counter as before (x ~= 0x0200 per full 128 KB load). Once
+// chk_done, x rotates (~0.8 s per phase) through the sweep counters, with q
+// tagging which one is showing:
+//   qE0: x = words read back as all-FF        (expect ~0)
+//   qE1: x = words with both DQML lanes FF    (~0x7Fxx = low byte lane dead)
+//   qE2: x = words with both DQMH lanes FF    (~0x7Fxx = high byte lane dead)
+//   qE3: x = write counter [23:8] again
+reg [26:0] diag_cnt = 0;
+always @(posedge clk_sys) diag_cnt <= diag_cnt + 1'b1;
+wire [1:0]  diag_ph = diag_cnt[26:25];
+// E1 repurposed: live AUTO_REFRESH issue counter (sweep is disabled).
+// A DIFFERENT xE1 value on every beacon line = refresh commands are being
+// issued (~133k/s, wraps ~2x/s); frozen x0000 qE1 = the branch never fires.
+wire [15:0] diag_x = !chk_done_s     ? spw_count_s[23:8] :
+                     diag_ph == 2'd0 ? dbg_blk0_s :
+                     diag_ph == 2'd1 ? dbg_refresh_s :
+                     diag_ph == 2'd2 ? dbg_blk1_s : spw_count_s[23:8];
+wire [7:0]  diag_q = !chk_done_s     ? spw_count_s[7:0] :
+                     diag_ph == 2'd0 ? 8'hE0 :
+                     diag_ph == 2'd1 ? 8'hE1 :
+                     diag_ph == 2'd2 ? 8'hE2 : 8'hE3;
+
+// DIAGNOSTIC: the one-shot SDRAM dump borrows the UART pin while it runs
+wire beacon_txd;
+assign uart_tx = dump_active ? dump_txd : beacon_txd;
+
 uart_beacon #(.CLK_HZ(40_000_000), .BAUD(115200)) beacon (
     .clk(clk_sys),
     .calib(fb_calib),
     .ddr_rst(fb_ddr_rst),
-    // DIAGNOSTIC: x = sprite writes issued (spw_count[23:8]); after a full
-    //   128 KB load expect x ~= 0x0200 (131072>>8). x0000 = no writes issued.
-    // q = spw_count low bits (extra resolution while loading).
     // L bit7 = spq_nonff: sp_q was seen != all-ones at least once (=1 means the
     //   sprite read returned real data; =0 means it is stuck all-ones).
-    .cnt_x(spw_count_s[23:8]),
-    .cnt_q(spw_count_s[7:0]),
+    .cnt_x(diag_x),
+    .cnt_q(diag_q),
     .aux({game_id, cap_delay}),   // dXX: high 3 bits = running game_id
     // L bit7 = spq_nonff (sprite read saw non-FF data); rest = SD/loader flags.
     .aux2({spq_nonff_s, hb_h[23], usb_typ_s2, sd_ready, sd_err, ldr_done, ldr_error}),
-    .txd(uart_tx)
+    .txd(beacon_txd)
 );
 
 ddr3_framebuffer #(
